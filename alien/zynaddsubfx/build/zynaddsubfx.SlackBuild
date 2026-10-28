@@ -161,6 +161,9 @@ cd ${PRGNAM}-${VERSION}
 cat $SRCDIR/patches/zynaddsubfx_cstdint.patch | patch -p1 --verbose \
   2>&1 | tee $OUTPUT/patch-${PRGNAM}.log
 
+cat $SRCDIR/patches/zynaddsubfx-3.0.6-mxml4.patch | patch -p1 --verbose \
+  2>&1 | tee -a $OUTPUT/patch-${PRGNAM}.log
+
 chown -R root:root .
 chmod -R u+w,go+r-w,a+rX-st .
 

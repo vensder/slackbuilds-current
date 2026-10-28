@@ -41,7 +41,7 @@ elif [ "$ARCH" = "i686" ]; then
   SLKCFLAGS="-O2 -march=i686 -mtune=i686"
   LIBDIRSUFFIX=""
 elif [ "$ARCH" = "x86_64" ]; then
-  SLKCFLAGS="-O2 -fPIC"
+  SLKCFLAGS="-O2 -fPIC $(pkg-config --cflags cairo)"
   LIBDIRSUFFIX="64"
 else
   SLKCFLAGS="-O2"
@@ -56,6 +56,16 @@ cd $TMP
 rm -rf $PRGNAM
 tar xvf $CWD/${PRGNAM}_$VERSION.tar.?z
 cd $PRGNAM
+
+# CMake 4 fixes (from nixpkgs): drop removed OLD policies, LOCATION property
+sed -i -e 's/CMP0026 OLD/CMP0026 NEW/' \
+       -e 's/CMP0050 OLD/CMP0050 NEW/' \
+       -e 's/GET_TARGET_PROPERTY(BIN2RES bin2res LOCATION)/SET(BIN2RES $<TARGET_FILE:bin2res>)/' \
+       CMakeLists.txt
+
+# Carla: define CARLA_VERSION_HEX before carla.h checks it
+sed -i 's|^#include <QtCore/QMutex>|&\n#include "CarlaDefines.h"|' plugins/carlabase/carla.h
+
 # Fix symlink
 ( cd plugins/carlabase/carla/bin/carla.lv2
   rm resources

@@ -57,7 +57,7 @@ TMP=${TMP:-/tmp/SBo}
 PKG=$TMP/package-$PRGNAM
 OUTPUT=${OUTPUT:-/tmp}
 
-DOCFILES="ANNOUNCEMENT CHANGES COPYING CREDITS README"
+DOCFILES="ANNOUNCEMENT CHANGES* COPYING CREDITS* README*"
 
 if [ "$ARCH" = "i586" ]; then
   SLKCFLAGS="-O2 -march=i586 -mtune=i686"
@@ -131,6 +131,7 @@ make docdir=/usr/doc/$PRGNAM-$VERSION
 make install docdir=/usr/doc/$PRGNAM-$VERSION DESTDIR=$PKG
 chmod 644 $PKG/usr/lib*/*.a
 strip $PKG/usr/bin/fluid $PKG/usr/lib*/lib*.so.*.*
+rm -rf $PKG/usr/man/cat*
 gzip -9 $PKG/usr/man/man*/*
 
 # Remove catman directories :)
