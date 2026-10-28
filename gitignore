@@ -1,0 +1,21 @@
+# Source tarballs (re-downloadable; see .info or SRCURL)
+*.tar.*
+*.tgz
+*.tbz
+*.tbz2
+*.zip
+*.7z
+
+# Built packages and their side files
+*.txz
+*.md5
+*.dep
+
+# Build leftovers
+*.FAIL
+*.log
+*.orig
+*.rej
+
+# Unpacked SBo source dirs and checkouts left in build dirs
+*_temp_checkout_*

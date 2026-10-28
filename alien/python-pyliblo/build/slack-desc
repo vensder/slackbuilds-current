@@ -1,0 +1,19 @@
+# HOW TO EDIT THIS FILE:
+# The "handy ruler" below makes it easier to edit a package description.  Line
+# up the first '|' above the ':' following the base package name, and the '|'
+# on the right side marks the last column you can put a character in.  You must
+# make exactly 11 lines for the formatting to be correct.  It's also
+# customary to leave one space after the ':' except on otherwise blank lines.
+
+              |-----handy-ruler------------------------------------------------------|
+python-pyliblo: python-pyliblo (python wrapper for the liblo OSC library)
+python-pyliblo:
+python-pyliblo: pyliblo is a Python wrapper for the liblo OSC library.
+python-pyliblo: It supports almost the complete functionality of liblo,
+python-pyliblo: allowing you to send and receive OSC messages using
+python-pyliblo: a nice and simple Python API.
+python-pyliblo: Also included are commandline utilities send_osc and dump_osc.
+python-pyliblo:
+python-pyliblo:
+python-pyliblo: python-pyliblo home: http://das.nasophon.de/pyliblo/
+python-pyliblo:

@@ -1,0 +1,568 @@
+#!/bin/sh
+# $Id: wine.SlackBuild,v 1.117 2024/12/29 11:22:52 root Exp root $
+# Copyright 2006-2024  Eric Hameleers, Eindhoven, NL
+# All rights reserved.
+#
+#   Permission to use, copy, modify, and distribute this software for
+#   any purpose with or without fee is hereby granted, provided that
+#   the above copyright notice and this permission notice appear in all
+#   copies.
+#
+#   THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+#   WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+#   MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+#   IN NO EVENT SHALL THE AUTHORS AND COPYRIGHT HOLDERS AND THEIR
+#   CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+#   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+#   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+#   USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+#   ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+#   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+#   OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+#   SUCH DAMAGE.
+# -----------------------------------------------------------------------------
+# Slackware SlackBuild script 
+# ===========================
+# By:        Eric Hameleers <alien@slackware.com>
+# For:       wine
+# Descr:     Wine Is Not an Emulator
+# URL:       http://winehq.com/
+#            http://wine-staging.com/
+# Buildneeds:MinGW-w64
+#            fontforge (builds better fonts when compiling wine)
+# Needs:     (Slackware < 15): OpenAL
+#            (Slackware >= 15): FAudio
+# Changelog:
+# 0.9.23-1:   24/Oct/2006 by Eric Hameleers <alien@slackware.com>
+#            * Initial build.
+# 0.9.25-1:   14/nov/2006 by Eric Hameleers <alien@slackware.com>
+# 0.9.30-1:   30/jan/2007 by Eric Hameleers <alien@slackware.com>
+# 0.9.31-1:   17/feb/2007 by Eric Hameleers <alien@slackware.com>
+# 0.9.32-1:   02/mar/2007 by Eric Hameleers <alien@slackware.com>
+#            * Update. I wasn't so happy with 0.9.31, it would not run HL2
+#              anywhere near reliably.
+# 0.9.33-1:   20/mar/2007 by Eric Hameleers <alien@slackware.com>
+# 0.9.34-1:   03/apr/2007 by Eric Hameleers <alien@slackware.com>
+# 0.9.35-1:   15/apr/2007 by Eric Hameleers <alien@slackware.com>
+# 0.9.36-1:   29/apr/2007 by Eric Hameleers <alien@slackware.com>
+# 0.9.37-1:   12/may/2007 by Eric Hameleers <alien@slackware.com>
+# 0.9.38-1:   04/jun/2007 by Eric Hameleers <alien@slackware.com>
+# 0.9.39-1:   17/jun/2007 by Eric Hameleers <alien@slackware.com>
+# 0.9.41-1:   24/jul/2007 by Eric Hameleers <alien@slackware.com>
+# 0.9.43-1:   14/aug/2007 by Eric Hameleers <alien@slackware.com>
+# 0.9.44-1:   25/aug/2007 by Eric Hameleers <alien@slackware.com>
+# 0.9.45-1:   15/sep/2007 by Eric Hameleers <alien@slackware.com>
+# 0.9.46-1:   03/oct/2007 by Eric Hameleers <alien@slackware.com>
+# 0.9.47-1:   13/oct/2007 by Eric Hameleers <alien@slackware.com>
+# 0.9.48-1:   29/oct/2007 by Eric Hameleers <alien@slackware.com>
+# 0.9.49-1:   13/nov/2007 by Eric Hameleers <alien@slackware.com>
+# 0.9.50-1:   02/dec/2007 by Eric Hameleers <alien@slackware.com>
+# 0.9.51-1:   19/dec/2007 by Eric Hameleers <alien@slackware.com>
+# 0.9.52-1:   30/dec/2007 by Eric Hameleers <alien@slackware.com>
+# 0.9.53-1:   12/jan/2008 by Eric Hameleers <alien@slackware.com>
+# 0.9.54-1:   28/jan/2008 by Eric Hameleers <alien@slackware.com>
+# 0.9.55-1:   10/feb/2008 by Eric Hameleers <alien@slackware.com>
+# 0.9.56-1:   23/feb/2008 by Eric Hameleers <alien@slackware.com>
+# 0.9.57-1:   14/mar/2008 by Eric Hameleers <alien@slackware.com>
+# 0.9.58-1:   22/mar/2008 by Eric Hameleers <alien@slackware.com>
+# 0.9.59-1:   05/apr/2008 by Eric Hameleers <alien@slackware.com>
+# 0.9.60-1:   21/apr/2008 by Eric Hameleers <alien@slackware.com>
+# 0.9.61-1:   06/may/2008 by Eric Hameleers <alien@slackware.com>
+# 1.0.rc1-1:  11/may/2008 by Eric Hameleers <alien@slackware.com>
+# 1.0.rc2-1:  26/may/2008 by Eric Hameleers <alien@slackware.com>
+# 1.0.rc3-1:  02/jun/2008 by Eric Hameleers <alien@slackware.com>
+# 1.0.rc4-1:  07/jun/2008 by Eric Hameleers <alien@slackware.com>
+# 1.0-1:      18/jun/2008 by Eric Hameleers <alien@slackware.com>
+#             * Yeah!
+# 1.1.0-1:    04/jul/2008 by Eric Hameleers <alien@slackware.com>
+# 1.1.2-1:    26/jul/2008 by Eric Hameleers <alien@slackware.com>
+# 1.1.3-1:    30/aug/2008 by Eric Hameleers <alien@slackware.com>
+# 1.1.4-1:    09/sep/2008 by Eric Hameleers <alien@slackware.com>
+# 1.1.5-1:    24/sep/2008 by Eric Hameleers <alien@slackware.com>
+# 1.1.6-1:    13/oct/2008 by Eric Hameleers <alien@slackware.com>
+# 1.1.7-1:    27/oct/2008 by Eric Hameleers <alien@slackware.com>
+# 1.1.9-1:    21/nov/2008 by Eric Hameleers <alien@slackware.com>
+# 1.1.10-1:   06/dec/2008 by Eric Hameleers <alien@slackware.com>
+# 1.1.11-1:   22/dec/2008 by Eric Hameleers <alien@slackware.com>
+# 1.1.22-1:   28/may/2009 by Eric Hameleers <alien@slackware.com>
+# 1.1.24-1:   22/jun/2009 by Eric Hameleers <alien@slackware.com>
+# 1.1.29-1:   14/sep/2009 by Eric Hameleers <alien@slackware.com>
+# 1.2.rc2-1:  29/may/2010 by Eric Hameleers <alien@slackware.com>
+# 1.2-1:      17/jul/2010 by Eric Hameleers <alien@slackware.com>
+# 1.2.2-1:    20/dec/2010 by Eric Hameleers <alien@slackware.com>
+# 1.3.37-1    18/jan/2012 by Eric Hameleers <alien@slackware.com>
+# 1.4-1       25/mar/2012 by Eric Hameleers <alien@slackware.com>
+# 1.5.4-1     19/may/2012 by Eric Hameleers <alien@slackware.com>
+# 1.5.5-1     28/may/2012 by Eric Hameleers <alien@slackware.com>
+# 1.5.26-1    20/mar/2013 by Eric Hameleers <alien@slackware.com>
+# 1.7.9-1     23/dec/2013 by Eric Hameleers <alien@slackware.com>
+# 1.7.14-1    18/mar/2014 by Eric Hameleers <alien@slackware.com>
+#             * Added wine64 'shared installation', think 'WoW64'.
+# 1.7.24-1    09/aug/2014 by Eric Hameleers <alien@slackware.com>
+# 1.7.33-1    02/jan/2015 by Eric Hameleers <alien@slackware.com>
+# 1.7.51-1    07/sep/2015 by Eric Hameleers <alien@slackware.com>
+#             * Apply the wine-staging patch set from http://wine-staging.com/.
+# 1.7.52-1    07/oct/2015 by Eric Hameleers <alien@slackware.com>
+#             * Apply the wine-d3d9 patch set if mesa was compiled with support
+#               for d3dadapter. See https://wiki.ixit.cz/d3d9
+# 1.8-1       28/dec/2015 by Eric Hameleers <alien@slackware.com>
+#             * I no longer apply the wine-d3d9 patch.  First: the patch fails
+#               to generate, and second: the Wine developers think it only works
+#               for some corner cases (modern Radeon GPU's), see also
+#               https://www.phoronix.com/scan.php?page=news_item&px=Wine-D3D9-Gallium-Nine-Opposed
+# 1.9.15-1    25/jul/2016 by Eric Hameleers <alien@slackware.com>
+#             * Update. Gallium-nine patches obtained from another source.
+# 1.9.23-1    29/nov/2016 by Eric Hameleers <alien@slackware.com>
+#             * Update.
+# 2.8-1       28/may/2017 by Eric Hameleers <alien@slackware.com>
+#             * Update. No 2.9 yet because wine=staging is still at 2.8.
+# 2.13-1      29/jul/2017 by Eric Hameleers <alien@slackware.com>
+#             * Update.
+# 2.21-1      28/dec/2017 by Eric Hameleers <alien@slackware.com>
+#             * Update.
+# 4.0-1       05/feb/2019 by Eric Hameleers <alien@slackware.com>
+#             * Update.
+# 4.11-1      25/jun/2019 by Eric Hameleers <alien@slackware.com>
+#             * Update.
+# 4.17-1      29/sep/2019 by Eric Hameleers <alien@slackware.com>
+#             * Update.
+# 5.6-1       20/apr/2020 by Eric Hameleers <alien@slackware.com>
+#             * Update.
+# 5.17-1      25/sep/2020 by Eric Hameleers <alien@slackware.com>
+#             * Update. Add Windows PE binary support using mingw-w64.
+# 5.18-1      29/sep/2020 by Eric Hameleers <alien@slackware.com>
+#             * Update.
+# 5.22-1      10/dec/2020 by Eric Hameleers <alien@slackware.com>
+#             * Update.
+# 6.0-1       10/feb/2021 by Eric Hameleers <alien@slackware.com>
+#             * Update.
+# 6.1-1       11/feb/2021 by Eric Hameleers <alien@slackware.com>
+#             * Update.
+# 6.12-1      15/jul/2021 by Eric Hameleers <alien@slackware.com>
+#             * Update.
+# 6.23-1      22/dec/2021 by Eric Hameleers <alien@slackware.com>
+#             * Update.
+# 7.3-1       01/mar/2022 by Eric Hameleers <alien@slackware.com>
+#             * Update.
+# 8.0-1       25/jan/2023 by Eric Hameleers <alien@slackware.com>
+#             * Update.
+# 8.2-1       19/feb/2023 by Eric Hameleers <alien@slackware.com>
+#             * Update.
+# 8.4-1       19/mar/2023 by Eric Hameleers <alien@slackware.com>
+#             * Update.
+# 8.5-1       01/apr/2023 by Eric Hameleers <alien@slackware.com>
+#             * Update.
+# 8.6-1       18/apr/2023 by Eric Hameleers <alien@slackware.com>
+#             * Update.
+# 9.13-1      25/jul/2024 by Eric Hameleers <alien@slackware.com>
+#             * Update.
+# 9.22-1      29/dec/2024 by Eric Hameleers <alien@slackware.com>
+#             * Update.
+#
+# Run 'sh wine.SlackBuild' to build a Slackware package.
+# The package (.txz) plus descriptive .txt file are created in /tmp .
+# Install using 'installpkg'. 
+#
+# -----------------------------------------------------------------------------
+
+
+PRGNAM=wine
+SRCVER=${SRCVER:-"9.22"}
+STAGING=${STAGING:-"9.22"}
+VERSION=$(echo $SRCVER | tr '-' '.')
+VERMAJ=$(echo $VERSION | cut -d. -f1)
+VERMIN=$(echo $VERSION | cut -d. -f2) ; [ $VERMIN -ne 0 ] && VERMIN="x"
+BUILD=${BUILD:-1}
+NUMJOBS=${NUMJOBS:-" -j$(nproc) "}
+TAG=${TAG:-alien}
+
+DOCS="ANNOUNCE AUTHORS COPYING* ChangeLog LICENSE* MAINTAINERS README* VERSION"
+
+# If you do not want wine64 on Slackware64, set this to "no":
+DO_WINE64=${DO_WINE64:-"yes"}
+
+# Add the "Gecko", Wine's own implementation of Internet Explorer.
+# For matching wine-gecko & wine versions, see http://wiki.winehq.org/Gecko
+GECKO=${GECKO:-2.47.4}
+
+# Add Wine-mono, Wine"s implementation of Mono.
+# The Mono package should always be removed before installing native .NET.
+# This can be done with the following command-line:
+# $ wine uninstaller --remove '{E45D8920-A758-4088-B6C6-31DBB276992E}'
+# In a 64 bit wineprefix, substitute wine64 for wine in the above command.
+# If you do not want to add mono, define MONO=NO instead of a number.
+# See https://wiki.winehq.org/Mono
+MONO=${MONO:-9.3.0}
+
+# Set the variable OPENGL to "NO" if you don't have a card that
+# supports hardware accelerated OpenGL:
+OPENGL=${OPENGL:-"YES"}    # Use 'YES' not 'yes' : case-sensitive!
+
+# If you set REQUIRE_FONTFORGE to "NO" then the script won't refuse to build
+#   wine in case you don't have fontforge installed (it is needed to
+#   generate the required base fonts).
+REQUIRE_FONTFORGE=${REQUIRE_FONTFORGE:-"YES"}
+
+# Where do we look for sources?
+SRCDIR=$(cd $(dirname $0); pwd)
+
+# Place to build (TMP) package (PKG) and output (OUTPUT) the program:
+TMP=${TMP:-/tmp/build}
+PKG=$TMP/package-$PRGNAM
+OUTPUT=${OUTPUT:-/tmp}
+
+##
+## --- with a little luck, you won't have to edit below this point --- ##
+##
+
+# Automatically determine the architecture we're building on:
+MARCH=$( uname -m )
+if [ -z "$ARCH" ]; then
+  case "$MARCH" in
+    i?86)    export ARCH=i586 ;;
+    armv7hl) export ARCH=$MARCH ;;
+    arm*)    export ARCH=arm ;;
+    # Unless $ARCH is already set, use uname -m for all other archs:
+    *)       export ARCH=$MARCH ;;
+  esac
+fi
+
+case "$ARCH" in
+  i?86)      SLKCFLAGS="-Os -march=${ARCH} -mtune=i686"
+             ;;
+  x86_64)    SLKCFLAGS="-O2 -fPIC"
+             ;;
+  *)         SLKCFLAGS="-O2"
+             ;;
+esac
+
+case "$ARCH" in
+    arm*) TARGET=$ARCH-slackware-linux-gnueabi ;;
+    *)    TARGET=$ARCH-slackware-linux ;;
+esac
+
+# Determine whether we have the tools to compile Windows native binaries:
+if [ "$ARCH" == "x86_64" ]; then
+  WIN_COMPILERS="x86_64-w64-mingw32-gcc i686-w64-mingw32-gcc"
+  WIN32_ARCH="i686"
+else
+  WIN_COMPILERS="i686-w64-mingw32-gcc"
+  WIN32_ARCH="i686"
+fi
+if ! which ${WIN_COMPILERS} 1>/dev/null 2>/dev/null ; then
+  cat <<EOT
+**
+** If you want to add support for Windows native binaries (PE format),
+** please install MinGW-w64 package first and login again to update PATH.
+**
+EOT
+  sleep 5
+fi
+
+# Download locations:
+DLI=0
+SOURCE[$DLI]="$SRCDIR/${PRGNAM}-${SRCVER}.tar.xz"
+SRCURL[$DLI]="https://dl.winehq.org/wine/source/${VERMAJ}.${VERMIN}/${PRGNAM}-${SRCVER}.tar.xz"
+
+DLI=$(($DLI+1))
+SOURCE[$DLI]="$SRCDIR/${PRGNAM}-staging-${STAGING}.tar.gz"
+SRCURL[$DLI]="https://github.com/${PRGNAM}-staging/${PRGNAM}-staging/archive/v${STAGING}.tar.gz"
+STAGINGSRC="${SOURCE[$DLI]}"
+
+DLI=$(($DLI+1))
+SOURCE[$DLI]="$SRCDIR/wine-gecko-${GECKO}-x86.tar.xz"
+SRCURL[$DLI]="http://dl.winehq.org/wine/wine-gecko/${GECKO}/wine-gecko-${GECKO}-x86.tar.xz"
+GECKO32SRC="${SOURCE[$DLI]}"
+
+if [ "$ARCH" = "x86_64" -a "$DO_WINE64" = "yes" ]; then
+  DLI=$(($DLI+1))
+  SOURCE[$DLI]="$SRCDIR/wine-gecko-${GECKO}-x86_64.tar.xz"
+  SRCURL[$DLI]="http://dl.winehq.org/wine/wine-gecko/${GECKO}/wine-gecko-${GECKO}-x86_64.tar.xz"
+  GECKO64SRC="${SOURCE[$DLI]}"
+fi
+
+if [ "$MONO" != "NO" ]; then
+  DLI=$(($DLI+1))
+  SOURCE[$DLI]="$SRCDIR/wine-mono-${MONO}-x86.tar.xz"
+  SRCURL[$DLI]="http://dl.winehq.org/wine/wine-mono/${MONO}/wine-mono-${MONO}-x86.tar.xz"
+  MONOSRC="${SOURCE[$DLI]}"
+fi
+
+# Exit the script on errors:
+set -e
+trap 'echo "$0 FAILED on line $LINENO!" | tee $OUTPUT/error-${PRGNAM}.log' ERR
+# Catch unitialized variables:
+set -u
+P1=${1:-1}
+
+# Save old umask and set to 0022:
+_UMASK_=$(umask)
+umask 0022
+
+# Create working directories:
+mkdir -p $OUTPUT          # place for the package to be saved
+mkdir -p $TMP/tmp-$PRGNAM # location to build the source
+mkdir -p $PKG             # place for the package to be built
+rm -rf $PKG/*             # always erase old package's contents
+rm -rf $TMP/tmp-$PRGNAM/* # remove the remnants of previous build
+rm -rf $OUTPUT/{configure,make,install,error,makepkg}-$PRGNAM.log
+                          # remove old log files
+
+# Source files availability:
+for (( i = 0; i < ${#SOURCE[*]}; i++ )) ; do
+  if ! [ -f ${SOURCE[$i]} ]; then
+    echo "Source '$(basename ${SOURCE[$i]})' not available yet..."
+    # Check if the $SRCDIR is writable at all - if not, download to $OUTPUT
+    [ -w "$SRCDIR" ] || SOURCE[$i]="$OUTPUT/$(basename ${SOURCE[$i]})"
+    if [ -f ${SOURCE[$i]} ]; then echo "Ah, found it!"; continue; fi
+    if ! [ "x${SRCURL[$i]}" == "x" ]; then
+      echo "Will download file to $(dirname $SOURCE[$i])"
+      wget -nv -T 20 --no-check-certificate -O "${SOURCE[$i]}" "${SRCURL[$i]}" || true
+      if [ $? -ne 0 -o ! -s "${SOURCE[$i]}" ]; then
+        echo "Fail to download '$(basename ${SOURCE[$i]})'. Aborting the build."
+        mv -f "${SOURCE[$i]}" "${SOURCE[$i]}".FAIL
+        exit 1
+      fi
+    fi
+    if [ ! -f "${SOURCE[$i]}" -o ! -s "${SOURCE[$i]}" ]; then
+      echo "File '$(basename ${SOURCE[$i]})' not available. Aborting the build."
+      exit 1
+    fi
+  fi
+done
+
+if [ "$P1" == "--download" ]; then
+  echo "Download complete."
+  exit 0
+fi
+
+# --- PACKAGE BUILDING ---
+
+echo "++"
+echo "|| $PRGNAM-$VERSION"
+echo "++"
+
+if ! which fontforge >/dev/null 2>&1 ; then
+  echo "##"
+  echo "## The 'fontforge' program does not seem to be installed."
+  echo "## Wine uses fontforge to generate several TTF fonts (tahoma,tahomabd,marlett)"
+  echo "##   that your Windows programs may want to use!"
+  if [ "$REQUIRE_FONTFORGE" != "YES" ]; then 
+    echo "##"
+    echo "## Continuing the build anyway, but you were warned..."
+    echo "## Sleeping for 5 seconds, press <Ctrl>-C if you want to abort now."
+    echo "##"
+    sleep 5
+  else
+    echo "##"
+    echo "## Aborting the build - set the internal script variable:"
+    echo "##"
+    echo "##   'REQUIRE_FONTFORGE' to a value of 'NO'"
+    echo "##"
+    echo "## if you don't want to use fontforge to generate TTF fonts."
+    echo "##"
+    exit 1
+  fi
+fi
+
+cd $TMP/tmp-$PRGNAM
+
+echo "Extracting the source archive(s) for $PRGNAM..."
+tar -xvf ${SOURCE[0]}
+tar -xf ${GECKO32SRC}
+if [ "$ARCH" = "x86_64" -a "$DO_WINE64" = "yes" ]; then
+  tar -xf ${GECKO64SRC}
+fi
+if [ "$MONO" != "NO" ]; then
+  tar -xf ${MONOSRC}
+fi
+[ "$SRCVER" != "$VERSION" ] && mv ${PRGNAM}-${SRCVER} ${PRGNAM}-${VERSION}
+cd ${PRGNAM}-${VERSION}
+
+# Patches:
+touch $OUTPUT/patch-${PRGNAM}.log
+# Apply the wine-staging patches:
+echo -e "\n**\n** wine-staging:\n**" | tee -a $OUTPUT/patch-${PRGNAM}.log
+tar -xf ${STAGINGSRC} --strip-components 1
+python3 staging/patchinstall.py --destdir="$(pwd)" --all \
+  2>&1 | tee -a $OUTPUT/patch-${PRGNAM}.log
+
+chown -R root:root .
+chmod -R u+w,go+r-w,a+X-s .
+
+echo Building ...
+
+if [ "$ARCH" = "x86_64" -a "$DO_WINE64" = "yes" ]; then
+  echo  "Also building wine64 (shared support, aka WoW64)"
+fi
+
+if [ "${OPENGL}" = "YES" -o "${OPENGL}" = "yes" ]; then
+    DO_GL="--with-opengl"
+else
+    DO_GL="--without-opengl"
+fi
+
+export CCAS="as"
+export CFLAGS="$SLKCFLAGS -Wno-incompatible-pointer-types"
+export CXXFLAGS="$SLKCFLAGS"
+export LDFLAGS="-L/usr/lib -ldl"
+if [ "$ARCH" = "x86_64" ]; then
+  OLD_PKG_CONFIG_PATH="$PKG_CONFIG_PATH"
+  export PKG_CONFIG_PATH="/usr/lib/pkgconfig:$PKG_CONFIG_PATH"
+fi
+
+function wineconfigure ()
+{
+  ../configure \
+    --prefix=/usr \
+    --localstatedir=/var \
+    --sysconfdir=/etc \
+    --mandir=/usr/man \
+    --with-x \
+    ${DO_GL} \
+    --program-prefix= \
+    --program-suffix= \
+    --build=$TARGET \
+    $*
+}
+
+# Required because of the wine-staging as well as the direct3d9 patches:
+autoreconf -vif 2>&1 | tee $OUTPUT/autoreconf-${PRGNAM}.log
+
+# Remove '-fPIC' when compiling on 32bit OS, or else the build will hang
+# for older compilers (thanks to Dave Woodfall of SBo):
+if [ "$ARCH" != "x86_64" -a $(gcc -dumpversion | cut -d'.' -f1) -lt 8 ]; then
+  sed -i -e "s/-fPIC//g" configure
+fi
+
+if [ "$ARCH" = "x86_64" -a "$DO_WINE64" = "yes" ]; then
+  # First, wine64:
+  mkdir wine64
+  cd wine64
+    wineconfigure --libdir=/usr/lib64 --enable-win64 PKG_CONFIG_PATH="$OLD_PKG_CONFIG_PATH" CC=/usr/bin/gcc 2>&1 | tee $OUTPUT/configure64-${PRGNAM}.log
+    make $NUMJOBS depend 2>&1 | tee $OUTPUT/make64-${PRGNAM}.log
+    make $NUMJOBS 2>&1 | tee -a $OUTPUT/make64-${PRGNAM}.log
+    make DESTDIR=$PKG install 2>&1 |tee $OUTPUT/install64-${PRGNAM}.log
+  cd -
+  # Next, wine:
+  mkdir wine32
+  cd wine32
+    wineconfigure --libdir=/usr/lib --with-wine64=../wine64 2>&1 | tee $OUTPUT/configure-${PRGNAM}.log
+    make $NUMJOBS depend 2>&1 | tee $OUTPUT/make-${PRGNAM}.log
+    make $NUMJOBS 2>&1 | tee -a $OUTPUT/make-${PRGNAM}.log
+    make DESTDIR=$PKG install 2>&1 |tee $OUTPUT/install-${PRGNAM}.log
+  cd -
+else
+  # No 64-bit wine requested, or we are on 32-bit Slackware:
+  mkdir wine32
+  cd wine32
+    wineconfigure --libdir=/usr/lib 2>&1 | tee $OUTPUT/configure-${PRGNAM}.log
+    make $NUMJOBS depend 2>&1 | tee $OUTPUT/make-${PRGNAM}.log
+    make $NUMJOBS 2>&1 | tee -a $OUTPUT/make-${PRGNAM}.log
+    make DESTDIR=$PKG install 2>&1 |tee $OUTPUT/install-${PRGNAM}.log
+  cd -
+fi
+
+# Add wine-gecko to the Wine package:
+mkdir -p $PKG/usr/share/wine/gecko
+mv -i $TMP/tmp-$PRGNAM/$(basename $GECKO32SRC .tar.xz) $PKG/usr/share/wine/gecko/
+if [ "$ARCH" = "x86_64" -a "$DO_WINE64" = "yes" ]; then
+  mv -i $TMP/tmp-$PRGNAM/$(basename $GECKO64SRC .tar.xz) $PKG/usr/share/wine/gecko/
+fi
+
+# Add the wine-mono MSI installer to the Wine package:
+if [ "$MONO" != "NO" ]; then
+  mkdir -p $PKG/usr/share/wine/mono
+  mv -i $TMP/tmp-$PRGNAM/wine-mono-${MONO} $PKG/usr/share/wine/mono/
+fi
+
+# Add the font converter programs if they were created using fontforge:
+# (useful if you need to convert a Windows .fon file to UNIX .bdf)
+if [ -e tools/fnt2fon -a -e tools/sfnt2fnt ]; then
+  install -m 755 tools/{fnt2fon,sfnt2fnt} $PKG/usr/bin
+fi
+
+# Add a desktop menu for the winecfg program:
+mkdir -p $PKG/usr/share/{icons/hicolor/scalable/apps,pixmaps}
+convert $SRCDIR/wine.svg -scale 256 $PKG/usr/share/pixmaps/wine.png
+install -m0644 $SRCDIR/wine.svg $PKG/usr/share/icons/hicolor/scalable/apps/
+# I used karbon to extract a single picture out of the SVG:
+convert $SRCDIR/winecfg.png -scale 256 $PKG/usr/share/pixmaps/winecfg.png
+cp -a programs/winecfg/winecfg.svg $PKG/usr/share/icons/hicolor/scalable/apps/
+mkdir -p $PKG/usr/share/applications
+cat <<_EOT_ > $PKG/usr/share/applications/winecfg.desktop
+[Desktop Entry]
+Exec=winecfg
+Icon=winecfg
+Terminal=false
+Name=Wine Configuration
+Comment=Configure Wine
+Type=Application
+Categories=Application;Settings
+_EOT_
+cat <<_EOT_ > $PKG/usr/share/applications/winebrowser.desktop
+[Desktop Entry]
+Exec=wine winebrowser c:
+Icon=wine
+Terminal=false
+Name=Browse Wine's C: Drive
+Comment=Browse Wine's C: drive
+Type=Application
+Categories=Application;
+_EOT_
+
+# Add some documentation to the package:
+mkdir -p $PKG/usr/doc/$PRGNAM-$VERSION
+cp -a $DOCS $PKG/usr/doc/$PRGNAM-$VERSION || true
+install -m0644 $SRCDIR/$(basename $0) $PKG/usr/doc/$PRGNAM-$VERSION/$PRGNAM.SlackBuild
+chown -R root:root $PKG/usr/doc/$PRGNAM-$VERSION
+find $PKG/usr/doc -type f -exec chmod 644 {} \;
+
+# Compress the man page(s)
+if [ -d $PKG/usr/man ]; then
+  cd  $PKG/usr/man
+  find . -type f -name "*.?" -exec gzip -9f {} \;
+  for i in $(find . -type l -name "*.?") ; do ln -s $( readlink $i ).gz $i.gz ; rm $i ; done
+fi
+
+# Strip binaries
+find $PKG | xargs file | grep -e "executable" -e "shared object" \
+  | grep ELF | cut -f1 -d: | xargs strip --strip-unneeded 2>/dev/null || true
+if which ${WIN_COMPILERS} 1>/dev/null 2>/dev/null ; then
+  find $PKG/usr/lib/wine/ -name "*.dll" \
+    | xargs ${WIN32_ARCH}-w64-mingw32-strip --strip-unneeded
+  if [ "$ARCH" == "x86_64" ]; then
+    find $PKG/usr/lib64/wine/ -name "*.dll" \
+      | xargs x86_64-w64-mingw32-strip --strip-unneeded
+  fi
+fi
+
+# Add a package description:
+mkdir -p $PKG/install
+cat $SRCDIR/slack-desc > $PKG/install/slack-desc
+cat $SRCDIR/slack-required > $PKG/install/slack-required
+
+if [ -z "$(grep ^[^+]*$ /etc/slackware-version)" ] || [ $(cat /etc/slackware-version |cut -d' ' -f2 |cut -d. -f1) -gt 14 ];
+then
+  # In Slackware 15, openal-soft was added so OpenAL is no longer a dep:
+  sed -i $PKG/install/slack-required -e "/OpenAL/d"
+else
+  # On Slackware before 15.0, FAudio won't compile,
+  # due to outdated/missing OS libraries:
+  sed -i $PKG/install/slack-required -e "/FAudio/d"
+fi
+
+# Build the package:
+cd $PKG
+makepkg --linkadd y --chown n $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.txz 2>&1 | tee $OUTPUT/makepkg-${PRGNAM}.log
+cd $OUTPUT
+md5sum ${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.txz > ${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.txz.md5
+cd -
+cat $PKG/install/slack-desc | grep "^${PRGNAM}" > $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.txt
+if [ -f $PKG/install/slack-required ]; then
+  cat $PKG/install/slack-required > $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.dep
+fi
+
+# Restore the original umask:
+umask ${_UMASK_}
+

@@ -1,0 +1,232 @@
+#!/bin/sh
+# $Id: qmmp.SlackBuild,v 1.7 2014/05/08 14:49:21 root Exp $
+# Copyright 2010, 2011, 2014  Eric Hameleers, Eindhoven, NL
+# All rights reserved.
+#
+#   Permission to use, copy, modify, and distribute this software for
+#   any purpose with or without fee is hereby granted, provided that
+#   the above copyright notice and this permission notice appear in all
+#   copies.
+#
+#   THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+#   WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+#   MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+#   IN NO EVENT SHALL THE AUTHORS AND COPYRIGHT HOLDERS AND THEIR
+#   CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+#   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+#   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+#   USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+#   ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+#   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+#   OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+#   SUCH DAMAGE.
+# -----------------------------------------------------------------------------
+#
+# Slackware SlackBuild script 
+# ===========================
+# By:         Eric Hameleers <alien@slackware.com>
+# For:        qmmp
+# Descr:      audio-player with a Qt interface
+# URL:        http://qmmp.ylsoftware.com/index_en.php
+# Needs:      faad2
+# Changelog:  
+# 0.4.0-1:    30/May/2010 by Eric Hameleers <alien@slackware.com>
+#             * Initial build.
+# 0.4.0-1:    06/jun/2010 by Eric Hameleers <alien@slackware.com>
+#             * Use faad2 for AAC and libsndfile for WAV support.
+# 0.5.0-1:    15/may/2011 by Eric Hameleers <alien@slackware.com>
+#             * Update. Removed libsndfile as an external dependency because
+#               that has been added to Slackware 13.37.
+# 0.5.1-1:    27/jun/2011 by Eric Hameleers <alien@slackware.com>
+#             * Update.
+# 0.7.6-1:    08/may/2014 by Eric Hameleers <alien@slackware.com>
+#             * Update.
+# 
+# Run 'sh qmmp.SlackBuild' to build a Slackware package.
+# The package (.tgz) and .txt file as well as build logs are created in /tmp .
+# Install it using 'installpkg'. 
+#
+# -----------------------------------------------------------------------------
+
+PRGNAM=qmmp
+VERSION=${VERSION:-0.7.6}
+BUILD=${BUILD:-1}
+NUMJOBS=${NUMJOBS:" -j4 "}
+TAG=${TAG:-alien}
+
+DOCS="AUTHORS COPYING ChangeLog README*"
+
+# Where do we look for sources?
+SRCDIR=$(cd $(dirname $0); pwd)
+
+# Place to build (TMP) package (PKG) and output (OUTPUT) the program:
+TMP=${TMP:-/tmp/build}
+PKG=$TMP/package-$PRGNAM
+OUTPUT=${OUTPUT:-/tmp}
+
+SOURCE="$SRCDIR/${PRGNAM}-${VERSION}.tar.bz2"
+SRCURL="http://qmmp.ylsoftware.com/files/${PRGNAM}-${VERSION}.tar.bz2"
+
+##
+## --- with a little luck, you won't have to edit below this point --- ##
+##
+
+# Automatically determine the architecture we're building on:
+MARCH=$( uname -m )
+if [ -z "$ARCH" ]; then
+  case "$MARCH" in
+    i?86)    export ARCH=i486 ;;
+    armv7hl) export ARCH=$MARCH ;;
+    armv6hl) export ARCH=$MARCH ;;
+    arm*)    export ARCH=arm ;;
+    # Unless $ARCH is already set, use uname -m for all other archs:
+    *)       export ARCH=$MARCH ;;
+  esac
+fi
+
+case "$ARCH" in
+  i486)      SLKCFLAGS="-O2 -march=i486 -mtune=i686"
+             SLKLDFLAGS=""; LIBDIRSUFFIX=""
+             ;;
+  x86_64)    SLKCFLAGS="-O2 -fPIC"
+             SLKLDFLAGS="-L/usr/lib64"; LIBDIRSUFFIX="64"
+             ;;
+  armv7hl)   SLKCFLAGS="-O2 -march=armv7-a -mfpu=vfpv3-d16"
+             SLKLDFLAGS=""; LIBDIRSUFFIX=""
+             ;;
+  armv6hl)   SLKCFLAGS="-O2 -march=armv6 -mfpu=vfp -mfloat-abi=hard"
+             SLKLDFLAGS=""; LIBDIRSUFFIX=""
+             ;;
+  *)         SLKCFLAGS=${SLKCFLAGS:-"O2"}
+             SLKLDFLAGS=${SLKLDFLAGS:-""}; LIBDIRSUFFIX=${LIBDIRSUFFIX:-""}
+             ;;
+esac
+
+# Exit the script on errors:
+set -e
+trap 'echo "$0 FAILED at line ${LINENO}" | tee $OUTPUT/error-${PRGNAM}.log' ERR
+# Catch unitialized variables:
+set -u
+P1=${1:-1}
+
+# Save old umask and set to 0022:
+_UMASK_=$(umask)
+umask 0022
+
+# Create working directories:
+mkdir -p $OUTPUT          # place for the package to be saved
+mkdir -p $TMP/tmp-$PRGNAM # location to build the source
+mkdir -p $PKG             # place for the package to be built
+rm -rf $PKG/*             # always erase old package's contents
+rm -rf $TMP/tmp-$PRGNAM/* # remove the remnants of previous build
+rm -rf $OUTPUT/{configure,make,install,error,makepkg}-$PRGNAM.log
+                          # remove old log files
+
+# Source file availability:
+if ! [ -f ${SOURCE} ]; then
+  echo "Source '$(basename ${SOURCE})' not available yet..."
+  # Check if the $SRCDIR is writable at all - if not, download to $OUTPUT
+  [ -w "$SRCDIR" ] || SOURCE="$OUTPUT/$(basename $SOURCE)"
+  if [ -f ${SOURCE} ]; then echo "Ah, found it!"; continue; fi
+  if ! [ "x${SRCURL}" == "x" ]; then
+    echo "Will download file to $(dirname $SOURCE)"
+    wget -nv -T 20 -O "${SOURCE}" "${SRCURL}" || true
+    if [ $? -ne 0 -o ! -s "${SOURCE}" ]; then
+      echo "Downloading '$(basename ${SOURCE})' failed... aborting the build."
+      mv -f "${SOURCE}" "${SOURCE}".FAIL
+      exit 1
+    fi
+  else
+    echo "File '$(basename ${SOURCE})' not available... aborting the build."
+    exit 1
+  fi
+fi
+
+if [ "$P1" == "--download" ]; then
+  echo "Download complete."
+  exit 0
+fi
+
+# --- PACKAGE BUILDING ---
+
+echo "++"
+echo "|| $PRGNAM-$VERSION"
+echo "++"
+
+cd $TMP/tmp-$PRGNAM
+echo "Extracting the source archive(s) for $PRGNAM..."
+tar -xvf ${SOURCE}
+cd ${PRGNAM}-${VERSION}
+chown -R root:root .
+chmod -R u+w,go+r-w,a+rX-st .
+
+echo Building ...
+mkdir -p build
+cd build
+  cmake \
+    -DCMAKE_C_FLAGS:STRING="$SLKCFLAGS" \
+    -DCMAKE_CXX_FLAGS:STRING="$SLKCFLAGS" \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DMAN_INSTALL_DIR=/usr/man \
+    -DSYSCONF_INSTALL_DIR=/etc \
+    -DLIB_DIR=lib${LIBDIRSUFFIX} \
+    ..
+  make $NUMJOBS 2>&1 | tee $OUTPUT/make-${PRGNAM}.log
+  make DESTDIR=$PKG install 2>&1 | tee $OUTPUT/install-${PRGNAM}.log
+cd -
+
+# Add this to the doinst.sh:
+! [ -d $PKG/install ] && mkdir -p $PKG/install
+cat <<EOT >> $PKG/install/doinst.sh
+# Update the desktop database:
+if [ -x usr/bin/update-desktop-database ]; then
+  chroot . /usr/bin/update-desktop-database usr/share/applications > /dev/null 2>&1
+fi
+# Update the mime database:
+if [ -x usr/bin/update-mime-database ]; then
+  chroot . /usr/bin/update-mime-database usr/share/mime >/dev/null 2>&1
+fi
+
+# Update hicolor theme cache:
+if [ -d usr/share/icons/hicolor ]; then
+  if [ -x /usr/bin/gtk-update-icon-cache ]; then
+    chroot . /usr/bin/gtk-update-icon-cache -f -t usr/share/icons/hicolor 1> /dev/null 2> /dev/null
+  fi
+fi
+
+EOT
+
+# Add documentation:
+mkdir -p $PKG/usr/doc/$PRGNAM-$VERSION
+cp -a $DOCS $PKG/usr/doc/$PRGNAM-$VERSION || true
+cat $SRCDIR/$(basename $0) > $PKG/usr/doc/$PRGNAM-$VERSION/$PRGNAM.SlackBuild
+chown -R root:root $PKG/usr/doc/$PRGNAM-$VERSION
+find $PKG/usr/doc -type f -exec chmod 644 {} \;
+
+# Compress the man page(s):
+if [ -d $PKG/usr/man ]; then
+  find $PKG/usr/man -type f -name "*.?" -exec gzip -9f {} \;
+  for i in $(find $PKG/usr/man -type l -name "*.?") ; do ln -s $( readlink $i ).gz $i.gz ; rm $i ; done
+fi
+
+# Strip binaries (if any):
+find $PKG | xargs file | grep -e "executable" -e "shared object" | grep ELF \
+  | cut -f 1 -d : | xargs strip --strip-unneeded 2> /dev/null || true
+
+# Add a package description:
+mkdir -p $PKG/install
+cat $SRCDIR/slack-desc > $PKG/install/slack-desc
+cat $SRCDIR/slack-required > $PKG/install/slack-required
+
+# Build the package:
+cd $PKG
+makepkg --linkadd y --chown n $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-tgz} 2>&1 | tee $OUTPUT/makepkg-${PRGNAM}.log
+cd $OUTPUT
+md5sum ${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-tgz} > ${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-tgz}.md5
+cd -
+cat $PKG/install/slack-desc | grep "^${PRGNAM}" > $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.txt
+cat $PKG/install/slack-required > $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.dep
+
+# Restore the original umask:
+umask ${_UMASK_}
+
