@@ -84,6 +84,9 @@ su -c 'NUMJOBS=-j$(nproc) CMAKE_POLICY_VERSION_MINIMUM=3.5 sh ./lmms.SlackBuild 
 
 Order for lmms: fltk, stk, libgig, portaudio, carla, then lmms.
 
+`alien/.hold` lists packages that `build-slackbuild.sh -a` and `-d` must not
+rebuild (carla: stable 2.5.10 installed, SlackBuild default is a git snapshot).
+
 ## Workflow
 
 1. Import the upstream SlackBuild unchanged, commit: `import <pkg> from alien|sbo`.
