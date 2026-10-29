@@ -25,6 +25,7 @@ SlackBuild, except git snapshots (tarball only in Alien's build dir).
 | zynaddsubfx | alien | 3.0.6 | `patches/zynaddsubfx-3.0.6-mxml4.patch` (upstream PR #315, via Gentoo) for mxml 4 |
 | qmmp | alien | 2.4.2 | `SRCURL` moved to `files/qmmp/${VERSION%.*}/` |
 | carla | alien | 2.5.10 (Alien: 20241124 git snapshot) | stable release tarball from GitHub tag, renamed `carla-2.5.10.tar.gz`; built without MinGW-w64/wine |
+| surge-xt | alien | 1.3.4 | -DSURGE_SKIP_WERROR=ON (bundled LuaJIT/sqlite warnings break -Werror on GCC 16) |
 
 ## Packages built as-is
 
@@ -68,7 +69,6 @@ Version = installed version; `-n` = newest upstream, `-V` = given version.
 | wine, FAudio | optional carla dependencies (Windows plugin bridge) |
 | python-pyliblo | optional carla dependency (OSC remote control) |
 | jack_capture, meterbridge | downloaded, not built yet |
-| surge-xt | downloaded, not built yet |
 
 ## Build commands
 
