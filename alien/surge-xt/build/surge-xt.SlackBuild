@@ -231,6 +231,7 @@ cmake -S $(pwd) -B build-${PRGNAM} \
   -DSURGE_BUILD_32BIT_LINUX=ON \
   -DSURGE_BUILD_LV2=ON \
   -DSURGE_BUILD_TESTRUNNER=OFF \
+  -DSURGE_SKIP_WERROR=ON \
   2>&1 | tee $OUTPUT/configure-${PRGNAM}.log
 cmake --build build-${PRGNAM} -j $NUMJOBS \
   2>&1 | tee $OUTPUT/make-${PRGNAM}.log
