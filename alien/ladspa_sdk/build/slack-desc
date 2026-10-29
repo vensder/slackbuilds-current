@@ -1,0 +1,19 @@
+# HOW TO EDIT THIS FILE:
+# The "handy ruler" below makes it easier to edit a package description.  Line
+# up the first '|' above the ':' following the base package name, and the '|'
+# on the right side marks the last column you can put a character in.  You must
+# make exactly 11 lines for the formatting to be correct.  It's also
+# customary to leave one space after the ':' except on otherwise blank lines.
+
+          |-----handy-ruler------------------------------------------------------|
+ladspa_sdk: ladspa_sdk (SDK for sound plugins)
+ladspa_sdk:
+ladspa_sdk: LADSPA (Linux Audio Developer's Simple Plugin API) is a standard
+ladspa_sdk: that allows software audio processors and effects to be plugged
+ladspa_sdk: into a wide range of audio synthesis and recording packages.
+ladspa_sdk: For instance, it allows a developer to write a reverb program
+ladspa_sdk: and bundle it into a LADSPA "plugin library." Ordinary users can
+ladspa_sdk: then use this reverb within any LADSPA-friendly audio application.
+ladspa_sdk:
+ladspa_sdk: More info: http://www.ladspa.org/
+ladspa_sdk:

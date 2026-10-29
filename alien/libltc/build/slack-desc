@@ -1,0 +1,19 @@
+# HOW TO EDIT THIS FILE:
+# The "handy ruler" below makes it easier to edit a package description.  Line
+# up the first '|' above the ':' following the base package name, and the '|'
+# on the right side marks the last column you can put a character in.  You must
+# make exactly 11 lines for the formatting to be correct.  It's also
+# customary to leave one space after the ':' except on otherwise blank lines.
+
+      |-----handy-ruler------------------------------------------------------|
+libltc: libltc (Linear/Logitudinal Time Code (LTC) Library)
+libltc:
+libltc: Linear (or Longitudinal) Timecode (LTC) is an encoding of
+libltc: timecode data as a Manchester-Biphase encoded audio signal.
+libltc: The audio signal is commonly recorded on a VTR track or other
+libltc: storage media.
+libltc: libltc provides functionality to encode and decode LTC from/to
+libltc: timecode, including SMPTE date support.
+libltc:
+libltc: See also: https://x42.github.io/libltc/
+libltc:

@@ -1,0 +1,19 @@
+# HOW TO EDIT THIS FILE:
+# The "handy ruler" below makes it easier to edit a package description.  Line
+# up the first '|' above the ':' following the base package name, and the '|'
+# on the right side marks the last column you can put a character in.  You must
+# make exactly 11 lines for the formatting to be correct.  It's also
+# customary to leave one space after the ':'.
+
+         |-----handy-ruler------------------------------------------------------|
+drumstick: drumstick (MIDI libraries for Qt5/C++)
+drumstick:
+drumstick: Drumstick is a set of C++ MIDI libraries using Qt5 objects, idioms
+drumstick: and style.
+drumstick: It contains a C++ wrapper around the ALSA library sequencer interface.
+drumstick: A complementary library provides classes for SMF (Standard MIDI files:
+drumstick: .MID/.KAR), Cakewalk (.WRK), and Overture (.OVE) file format
+drumstick: processing. A multiplatform realtime MIDI I/O library is also provided
+drumstick: since release 1.0. 
+drumstick:
+drumstick: drumstick home: http://drumstick.sourceforge.net/

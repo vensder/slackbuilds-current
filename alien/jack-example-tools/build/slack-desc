@@ -1,0 +1,19 @@
+# HOW TO EDIT THIS FILE:
+# The "handy ruler" below makes it easier to edit a package description.  Line
+# up the first '|' above the ':' following the base package name, and the '|'
+# on the right side marks the last column you can put a character in.  You must
+# make exactly 11 lines for the formatting to be correct.  It's also
+# customary to leave one space after the ':' except on otherwise blank lines.
+
+                  |-----handy-ruler------------------------------------------------------|
+jack-example-tools: jack-example-tools (official JACK example clients and tools)
+jack-example-tools:
+jack-example-tools: This package contains the official JACK example clients
+jack-example-tools: and tools, which have been tracked in the example-clients
+jack-example-tools: and tools repositories in the past.
+jack-example-tools:
+jack-example-tools:
+jack-example-tools:
+jack-example-tools:
+jack-example-tools: See also: https://github.com/jackaudio/jack-example-tools
+jack-example-tools:

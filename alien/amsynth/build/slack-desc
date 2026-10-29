@@ -1,0 +1,19 @@
+# HOW TO EDIT THIS FILE:
+# The "handy ruler" below makes it easier to edit a package description.  Line
+# up the first '|' above the ':' following the base package name, and the '|'
+# on the right side marks the last column you can put a character in.  You must
+# make exactly 11 lines for the formatting to be correct.  It's also
+# customary to leave one space after the ':' except on otherwise blank lines.
+
+       |-----handy-ruler------------------------------------------------------|
+amsynth: amsynth (analog modelling synthesizer)
+amsynth:
+amsynth: amsynth is an analog modelling (aka virtual analog) software
+amsynth: synthesizer. It mimics the operation of early analog subtractive
+amsynth: synthesizers with classic oscillator waveforms, envelopes, filter,
+amsynth: modulation and effects.
+amsynth: The aim is to make it easy to create and modify sounds.
+amsynth: Amsynth runs as a stand-alone application using JACK, ALSA or OSS,
+amsynth: or as a DSSI/LV2/VST plugin.
+amsynth:
+amsynth: More info: http://amsynth.github.io/

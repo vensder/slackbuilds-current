@@ -72,7 +72,7 @@ GCC_DOCS="COPYING* ChangeLog* INSTALL LAST_UPDATED MAINTAINERS \
 MINGW_DOCS="AUTHORS COPYING* DISCLAIMER*"
 
 # Core tools:
-BINUTILS=2.40
+BINUTILS=2.45
 GCC=13.1.0
 MINGW=v11.0.0
 
@@ -257,8 +257,9 @@ echo "++"
 
 echo Building ...
 export LDFLAGS="$SLKLDFLAGS"
-export CXXFLAGS="$SLKCFLAGS"
-export CFLAGS="$SLKCFLAGS"
+#export CXXFLAGS="$SLKCFLAGS -std=gnu++17"
+export CXXFLAGS="$SLKCFLAGS -fno-char8_t"
+export CFLAGS="$SLKCFLAGS -std=gnu17"
 export CPPFLAGS="$SLKCFLAGS"
 
 # Used in all compilations:
@@ -385,6 +386,7 @@ build_support_tools ${GCC_BOOTSTRAP_PATH} ${TARGET}
 echo "-- binutils --"
 mkdir -p $TMP/tmp-$PRGNAM/binutils-build && cd $TMP/tmp-$PRGNAM/binutils-build
 $TMP/tmp-$PRGNAM/binutils-${BINUTILS}/configure \
+  --disable-gprofng \
   --prefix=${GCC_BOOTSTRAP_PATH} \
   --with-lib-path="${GCC_BOOTSTRAP_PATH}/lib" \
   --enable-deterministic-archives \
@@ -532,6 +534,7 @@ for _target in ${MINGW_TARGETS}; do
   echo -e "Building ${_target} cross binutils"
   mkdir -p $TMP/tmp-$PRGNAM/binutils-${_target} && cd $TMP/tmp-$PRGNAM/binutils-${_target}
   $TMP/tmp-$PRGNAM/binutils-${BINUTILS}/configure \
+    --disable-gprofng \
     --target="${_target}" \
     --enable-lto \
     --enable-plugins \

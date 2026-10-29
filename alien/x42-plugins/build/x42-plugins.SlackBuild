@@ -1,0 +1,435 @@
+#!/bin/sh
+# $Id: x42-plugins.SlackBuild,v 1.1 2020/08/04 10:09:17 root Exp root $
+# Copyright 2020, 2025  Eric Hameleers, Eindhoven, NL
+# All rights reserved.
+#
+#   Permission to use, copy, modify, and distribute this software for
+#   any purpose with or without fee is hereby granted, provided that
+#   the above copyright notice and this permission notice appear in all
+#   copies.
+#
+#   THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+#   WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+#   MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+#   IN NO EVENT SHALL THE AUTHORS AND COPYRIGHT HOLDERS AND THEIR
+#   CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+#   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+#   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+#   USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+#   ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+#   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+#   OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+#   SUCH DAMAGE.
+# -----------------------------------------------------------------------------
+#
+# Slackware SlackBuild script 
+# ===========================
+# By:          Eric Hameleers <alien@slackware.com>
+# For:         x42-plugins
+# Descr:       collection of lv2 plugins
+# URL:         http://x42-plugins.com/x42/
+# Build needs: 
+# Needs:       jack2, liblo, libltc, lv2, zita-convolver
+# Changelog:   
+# 20200714-1:  03/Aug/2020 by Eric Hameleers <alien@slackware.com>
+#              * Initial build.
+# 20240611-1:  26/jan/2025 by Eric Hameleers <alien@slackware.com>
+#              * Update.
+# 
+# Run 'sh x42-plugins.SlackBuild' to build a Slackware package.
+# The package (.t?z) and .txt file as well as build logs are created in /tmp .
+# Install the package using 'installpkg' or 'upgradepkg --install-new'.
+#
+# -----------------------------------------------------------------------------
+
+PRGNAM=x42-plugins
+VERSION=${VERSION:-20240611}
+BUILD=${BUILD:-1}
+TAG=${TAG:-alien}
+
+DOCS="plugin.news plugin.versions"
+
+# Where do we look for sources?
+SRCDIR=$(cd $(dirname $0); pwd)
+
+# Place to build (TMP) package (PKG) and output (OUTPUT) the program:
+TMP=${TMP:-/tmp/build}
+PKG=$TMP/package-$PRGNAM
+OUTPUT=${OUTPUT:-/tmp}
+
+SOURCE[0]="$SRCDIR/${PRGNAM}-${VERSION}.tar.xz"
+SRCURL[0]="http://gareus.org/misc/${PRGNAM}/${PRGNAM}-${VERSION}.tar.xz"
+
+SOURCE[1]="$SRCDIR/${PRGNAM}.png"
+SRCURL[1]="https://x42-plugins.com/x42/static/img/x42.png"
+
+##
+## --- with a little luck, you won't have to edit below this point --- ##
+##
+
+# Automatically determine the architecture we're building on:
+if [ -z "$ARCH" ]; then
+  case "$(uname -m)" in
+    i?86) ARCH=i586 ;;
+    arm*) readelf /usr/bin/file -A | egrep -q "Tag_CPU.*[4,5]" && ARCH=arm || ARCH=armv7hl ;;
+    # Unless $ARCH is already set, use uname -m for all other archs:
+    *) ARCH=$(uname -m) ;;
+  esac
+  export ARCH
+fi
+# Set CFLAGS/CXXFLAGS and LIBDIRSUFFIX:
+case "$ARCH" in
+  i?86)      SLKCFLAGS="-O2 -march=${ARCH} -mtune=i686"
+             SLKLDFLAGS=""; LIBDIRSUFFIX=""
+             ;;
+  x86_64)    SLKCFLAGS="-O2 -fPIC"
+             SLKLDFLAGS="-L/usr/lib64"; LIBDIRSUFFIX="64"
+             ;;
+  armv7hl)   SLKCFLAGS="-O2 -march=armv7-a -mfpu=vfpv3-d16"
+             SLKLDFLAGS=""; LIBDIRSUFFIX=""
+             ;;
+  *)         SLKCFLAGS=${SLKCFLAGS:-"-O2"}
+             SLKLDFLAGS=${SLKLDFLAGS:-""}; LIBDIRSUFFIX=${LIBDIRSUFFIX:-""}
+             ;;
+esac
+
+case "$ARCH" in
+    arm*)    TARGET=$ARCH-slackware-linux-gnueabi ;;
+    *)       TARGET=$ARCH-slackware-linux ;;
+esac
+
+# Exit the script on errors:
+set -e
+trap 'echo "$0 FAILED at line ${LINENO}" | tee $OUTPUT/error-${PRGNAM}.log' ERR
+# Catch unitialized variables:
+set -u
+P1=${1:-1}
+
+# Save old umask and set to 0022:
+_UMASK_=$(umask)
+umask 0022
+
+# Create working directories:
+mkdir -p $OUTPUT          # place for the package to be saved
+mkdir -p $TMP/tmp-$PRGNAM # location to build the source
+mkdir -p $PKG             # place for the package to be built
+rm -rf $PKG/*             # always erase old package's contents
+rm -rf $TMP/tmp-$PRGNAM/* # remove the remnants of previous build
+rm -rf $OUTPUT/{checkout,configure,make,install,error,makepkg,patch}-$PRGNAM.log
+                          # remove old log files
+
+# Source file availability:
+for (( i = 0; i < ${#SOURCE[*]}; i++ )) ; do
+  if ! [ -f ${SOURCE[$i]} ]; then
+    echo "Source '$(basename ${SOURCE[$i]})' not available yet..."
+    # Check if the $SRCDIR is writable at all - if not, download to $OUTPUT
+    [ -w "$SRCDIR" ] || SOURCE[$i]="$OUTPUT/$(basename ${SOURCE[$i]})"
+    if [ -f ${SOURCE[$i]} ]; then echo "Ah, found it!"; continue; fi
+    if ! [ "x${SRCURL[$i]}" == "x" ]; then
+      echo "Will download file to $(dirname $SOURCE[$i])"
+      wget --no-check-certificate -nv -T 20 -O "${SOURCE[$i]}" "${SRCURL[$i]}" || true
+      if [ $? -ne 0 -o ! -s "${SOURCE[$i]}" ]; then
+        echo "Fail to download '$(basename ${SOURCE[$i]})'. Aborting the build."
+        mv -f "${SOURCE[$i]}" "${SOURCE[$i]}".FAIL
+        exit 1
+      fi
+    else
+      echo "File '$(basename ${SOURCE[$i]})' not available. Aborting the build."
+      exit 1
+    fi
+  fi
+done
+
+if [ "$P1" == "--download" ]; then
+  echo "Download complete."
+  exit 0
+fi
+
+# --- PACKAGE BUILDING ---
+
+echo "++"
+echo "|| $PRGNAM-$VERSION"
+echo "++"
+
+cd $TMP/tmp-$PRGNAM
+echo "Extracting the source archive(s) for $PRGNAM..."
+tar -xf ${SOURCE}
+cd ${PRGNAM}-${VERSION}
+chown -R root:root .
+chmod -R u+w,go+r-w,a+rX-st .
+
+# Which plugins are part of the collection?
+PLUGIN_LIST="$(cat plugin.versions |cut -d' ' -f1)"
+
+# Slackware does not ship  ttf-freefont so we use DejaVu Sans instead:
+export FONTFILE="/usr/share/fonts/TTF/DejaVuSans-Bold.ttf"
+
+echo Building ...
+export LDFLAGS="$SLKLDFLAGS"
+export CXXFLAGS="$SLKCFLAGS"
+export CFLAGS="$SLKCFLAGS"
+make $NUMJOBS OPTIMIZATIONS="-DNDEBUG" 2>&1 | tee $OUTPUT/make-${PRGNAM}.log
+make PREFIX=/usr MANDIR=/usr/man/man1 LV2DIR=/usr/lib${LIBDIRSUFFIX}/lv2 \
+  DESTDIR=$PKG install 2>&1 | tee $OUTPUT/install-${PRGNAM}.log
+
+# Some of the plugins also install a standalone JACK binary,
+# so let's give them real menu entries,
+# with many thanks to Arch Linux for the descriptive texts:
+mkdir -p $PKG/usr/share/applications
+mkdir -p $PKG/usr/share/icons/hicolor/256x256/apps
+
+# First the parameter-less binaries:
+create_desktopfile() {
+cat <<EOT
+[Desktop Entry]
+Version=1.0
+Name=x42-$1
+GenericName=$2
+Comment=$3
+TryExec=$4
+Exec=$4
+Icon=$5
+Type=Application
+Terminal=false
+Categories=X-X42-Plugins;
+EOT
+}
+
+# darc:
+create_desktopfile \
+  "darc" \
+  "Dynamic Audio Range Compressor" \
+  "General purpose audio signal compressor" \
+  "x42-darc" \
+  "x42-darc" \
+  > $PKG/usr/share/applications/x42-darc.desktop
+install -Dm 644 darc.lv2/img/x42-darc.png \
+  -t $PKG/usr/share/icons/hicolor/256x256/apps/
+
+# dpl:
+create_desktopfile \
+  "dpl" \
+  "Peak Limiter" \
+  "Look-ahead digital peak limiter suited for your final mix" \
+  "x42-dpl" \
+  "x42-dpl" \
+  > $PKG/usr/share/applications/x42-dpl.desktop
+install -Dm 644 dpl.lv2/img/x42-dpl.png \
+  -t $PKG/usr/share/icons/hicolor/256x256/apps/
+
+# fat1:
+create_desktopfile \
+  "fat1" \
+  "Auto Tune" \
+  "Auto-tuner based on Fons Adriaensen's zita-at1" \
+  "x42-fat1" \
+  "x42_fat1" \
+  > $PKG/usr/share/applications/x42-fat1.desktop
+install -Dm 644 fat1.lv2/img/x42_fat1.png \
+  -t $PKG/usr/share/icons/hicolor/256x256/apps/
+
+# fil4:
+create_desktopfile \
+  "fil4" \
+  "Parametric Equalizer" \
+  "4 band parametric equalizer with additional low+high shelf filters, low+highpass" \
+  "x42-fil4" \
+  "x42_fil4" \
+  > $PKG/usr/share/applications/x42-fil4.desktop
+install -Dm 644 fil4.lv2/img/x42_fil4.png \
+  -t $PKG/usr/share/icons/hicolor/256x256/apps/
+
+# matrixmixer8x8
+create_desktopfile \
+  "matrixmixer8x8" \
+  "Matrix Mixer" \
+  "Matrix Mixer 8x8" \
+  "x42-matrixmixer8x8" \
+  "x42-matrixmixer" \
+  > $PKG/usr/share/applications/x42-matrixmixer8x8.desktop
+install -Dm 644 matrixmixer.lv2/img/x42-matrixmixer.png \
+  -t $PKG/usr/share/icons/hicolor/256x256/apps/
+
+# mixtri:
+create_desktopfile \
+  "mixtri" \
+  "Mixer and Trigger" \
+  "Matrix mixer and trigger processor" \
+  "x42-mixtri" \
+  "x42_mixtri" \
+  > $PKG/usr/share/applications/x42-mixtri.desktop
+install -Dm 644 mixtri.lv2/img/x42_mixtri.png \
+  -t $PKG/usr/share/icons/hicolor/256x256/apps/
+
+# scope:
+create_desktopfile \
+  "scope" \
+  "Oscilloscope" \
+  "Simple audio oscilloscope" \
+  "x42-scope" \
+  "x42-scope" \
+  > $PKG/usr/share/applications/x42-mixtri.desktop
+install -Dm 644 sisco.lv2/img/x42-scope.png \
+  -t $PKG/usr/share/icons/hicolor/256x256/apps/
+
+# spectr:
+create_desktopfile \
+  "spectr" \
+  "Spectrum Analyzer" \
+  "Spectrum Analyzer" \
+  "x42-spectr" \
+  "x42-spectr" \
+  > $PKG/usr/share/applications/x42-spectr.desktop
+install -Dm 644 spectra.lv2/img/x42-spectr.png \
+  -t $PKG/usr/share/icons/hicolor/256x256/apps/
+
+# stepseq:
+create_desktopfile \
+  "stepseq" \
+  "Step Sequencer" \
+  "Simple step sequencer for moddevices.com" \
+  "x42-stepseq" \
+  "x42-stepseq" \
+  > $PKG/usr/share/applications/x42-stepseq.desktop
+install -Dm 644 stepseq.lv2/img/x42-stepseq.png \
+  -t $PKG/usr/share/icons/hicolor/256x256/apps/
+
+# Next the ones that accept a parameter:
+
+# meter:
+create_desktopfile_meter() {
+cat <<EOT
+[Desktop Entry]
+Version=1.0
+Name=x42-meter_$1 
+GenericName=Audio Meter
+Comment=$2
+TryExec=x42-meter
+Exec=x42-meter $1
+Icon=x42-meters
+Type=Application
+Terminal=false
+Categories=X-X42-Plugins;
+EOT
+}
+declare -A meter_types=(
+  [0]='EBU R128 Meter'
+  [1]='K20/RMS Meter (Stereo)'
+  [2]='K14/RMS Meter (Stereo)'
+  [3]='K12/RMS Meter (Stereo)'
+  [4]='BBC Meter (Stereo)'
+  [5]='BBC M-6'
+  [6]='DIN Meter (Stereo)'
+  [7]='EBU Meter (Stereo)'
+  [8]='Nordic Meter (Stereo)'
+  [9]='VU Meter (Stereo)'
+  [10]='True-Peak and RMS Meter (Stereo)'
+  [11]='DR-14 - Crest Factor Loudness Range Meter'
+  [12]='Stereo Phase-Correlation Meter'
+  [13]='Goniometer'
+  [14]='Phase/Frequency Wheel'
+  [15]='1/3 Octave Spectrum Analyzer'
+  [16]='Stereo/Frequency Scope'
+  [17]='Signal Distribution Histogram'
+  [18]='Bit Meter'
+  [19]='Surround Level 8'
+  )
+for TYPE in $(seq 0 19) ; do
+  create_desktopfile_meter $TYPE "meter_types[$TYPE]" \
+    > $PKG/usr/share/applications/x42-meter_$TYPE.desktop
+done
+install -Dm 644 meters.lv2/img/x42-meters.png \
+  -t $PKG/usr/share/icons/hicolor/256x256/apps/
+
+# tuna:
+create_desktopfile_tuna() {
+cat <<EOT
+[Desktop Entry]
+Version=1.0
+Name=x42-tuna_$1 
+GenericName=Music Instrument Tuner
+Comment=$2
+TryExec=x42-tuna
+Exec=x42-tuna $1
+Icon=x42-tuna
+Type=Application
+Terminal=false
+Categories=X-X42-Plugins;
+EOT
+}
+create_desktopfile_tuna 0 "Instrument Tuner" \
+  > $PKG/usr/share/applications/x42-tuna_0.desktop
+create_desktopfile_tuna 1 "Instrument Tuner (Spectrum)" \
+  > $PKG/usr/share/applications/x42-tuna_1.desktop
+install -Dm 644 tuna.lv2/img/x42-tuna.png \
+  -t $PKG/usr/share/icons/hicolor/256x256/apps/
+
+# Limit all of them into their own submenu Applications>Multimedia>X42-Plugins
+# to avoid clutter in the Multimedia menu,
+# see https://specifications.freedesktop.org/menu-spec/menu-spec-1.0.html
+install -Dm 644 $SRCDIR/${PRGNAM}.menu \
+  -t $PKG/etc/xdg/menus/applications-merged/
+install -Dm 644 $SRCDIR/${PRGNAM}.directory \
+  -t $PKG/usr/share/desktop-directories/
+install -Dm 644 ${SOURCE[1]} \
+  -t $PKG/usr/share/icons/hicolor/256x256/apps/
+
+# Add this to the doinst.sh:
+mkdir -p $PKG/install
+cat <<EOT >> $PKG/install/doinst.sh
+# Update the desktop database:
+if [ -x usr/bin/update-desktop-database ]; then
+  chroot . /usr/bin/update-desktop-database usr/share/applications > /dev/null 2>&1
+fi
+# Update hicolor theme cache:
+if [ -d usr/share/icons/hicolor ]; then
+  if [ -x /usr/bin/gtk-update-icon-cache ]; then
+    chroot . /usr/bin/gtk-update-icon-cache -f -t usr/share/icons/hicolor 1> /dev/null 2> /dev/null
+  fi
+fi
+# Update the mime database:
+if [ -x usr/bin/update-mime-database ]; then
+  chroot . /usr/bin/update-mime-database usr/share/mime >/dev/null 2>&1
+fi
+EOT
+
+# Add documentation for all the plugins:
+mkdir -p $PKG/usr/doc/$PRGNAM-$VERSION
+cp -a $DOCS $PKG/usr/doc/$PRGNAM-$VERSION/ 2>/dev/null || true
+for DIREC in $PLUGIN_LIST ; do
+  mkdir -p $PKG/usr/doc/$PRGNAM-$VERSION/$DIREC
+  cp -a $DIREC/{AUTHORS,COPYING,LICENSE*,README*} \
+    $PKG/usr/doc/$PRGNAM-$VERSION/$DIREC/ 2>/dev/null || true
+done
+cat $SRCDIR/slack-required > $PKG/usr/doc/$PRGNAM-$VERSION/slack-required
+cat $SRCDIR/$(basename $0) > $PKG/usr/doc/$PRGNAM-$VERSION/$PRGNAM.SlackBuild
+chown -R root:root $PKG/usr/doc/$PRGNAM-$VERSION
+find $PKG/usr/doc -type f -exec chmod 644 {} \;
+
+# Compress the man page(s):
+if [ -d $PKG/usr/man ]; then
+  find $PKG/usr/man -type f -name "*.?" -exec gzip -9f {} \;
+  for i in $(find $PKG/usr/man -type l -name "*.?") ; do ln -s $( readlink $i ).gz $i.gz ; rm $i ; done
+fi
+
+# Strip binaries (if any):
+find $PKG | xargs file | grep -e "executable" -e "shared object" | grep ELF \
+  | cut -f 1 -d : | xargs strip --strip-unneeded 2> /dev/null || true
+
+# Add a package description:
+mkdir -p $PKG/install
+cat $SRCDIR/slack-desc > $PKG/install/slack-desc
+cat $SRCDIR/slack-required > $PKG/install/slack-required
+
+# Build the package:
+cd $PKG
+makepkg --linkadd y --chown n $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz} 2>&1 | tee $OUTPUT/makepkg-${PRGNAM}.log
+cd $OUTPUT
+md5sum ${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz} > ${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz}.md5
+cd -
+cat $PKG/install/slack-desc | grep "^${PRGNAM}" > $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.txt
+cat $PKG/install/slack-required > $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.dep
+
+# Restore the original umask:
+umask ${_UMASK_}
+

@@ -1,0 +1,10 @@
+diff -uar drumstick-1.1.2.orig/cmake_admin/CreateManpages.cmake drumstick-1.1.2/cmake_admin/CreateManpages.cmake
+--- drumstick-1.1.2.orig/cmake_admin/CreateManpages.cmake	2018-11-25 17:14:18.000000000 +0100
++++ drumstick-1.1.2/cmake_admin/CreateManpages.cmake	2019-01-16 12:17:28.689757125 +0100
+@@ -31,5 +31,5 @@
+     ENDFOREACH (it)
+     ADD_CUSTOM_TARGET(manpages ALL DEPENDS ${outfiles})
+     INSTALL ( FILES ${outfiles}
+-              DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/man/man1" )
++              DESTINATION "${CMAKE_INSTALL_MANDIR}/man1" )
+ ENDMACRO(CREATE_MANPAGES)

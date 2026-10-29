@@ -17,5 +17,11 @@
 *.orig
 *.rej
 
-# Unpacked SBo source dirs and checkouts left in build dirs
+# Checkouts left in build dirs by failed git-snapshot builds
 *_temp_checkout_*
+
+# Fetched by wget -r (download-slackbuilds.sh), not part of any SlackBuild
+robots.txt
+
+# Renamed old tarballs
+*.backup

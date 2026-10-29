@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=X42 Plugins
+Icon=x42-plugins
+Type=Directory
+Keywords=audio;sound;jackd;x42-plugins;
+Comment=A collection of JACK audio processing tools

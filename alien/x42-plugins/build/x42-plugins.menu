@@ -1,0 +1,15 @@
+<!DOCTYPE Menu PUBLIC "-//freedesktop//DTD Menu 1.0//EN" "http://www.freedesktop.org/standards/menu-spec/menu-1.0.dtd">
+<Menu>
+  <Name>Applications</Name>
+  <Menu>
+    <Name>Multimedia</Name>
+    <Menu>
+      <Name>X42 Plugins</Name>
+      <Directory>x42-plugins.directory</Directory>
+      <Include>
+        <Category>X-X42-Plugins</Category>
+      </Include>
+    </Menu>
+  </Menu>
+</Menu>
+

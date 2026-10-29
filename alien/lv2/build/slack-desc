@@ -1,0 +1,19 @@
+# HOW TO EDIT THIS FILE:
+# The "handy ruler" below makes it easier to edit a package description.  Line
+# up the first '|' above the ':' following the base package name, and the '|'
+# on the right side marks the last column you can put a character in.  You must
+# make exactly 11 lines for the formatting to be correct.  It's also
+# customary to leave one space after the ':' except on otherwise blank lines.
+
+   |-----handy-ruler------------------------------------------------------|
+lv2: lv2 (open standard for audio plugins)
+lv2:
+lv2: LV2 is an open standard for audio plugins, used by hundreds of plugins
+lv2: and other projects.
+lv2: At its core, LV2 is a simple stable interface, accompanied by
+lv2: extensions which add functionality to support the needs of
+lv2: increasingly powerful audio software.
+lv2:
+lv2:
+lv2: lv2 home: http://lv2plug.in/
+lv2:

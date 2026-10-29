@@ -1,0 +1,19 @@
+# HOW TO EDIT THIS FILE:
+# The "handy ruler" below makes it easier to edit a package description.  Line
+# up the first '|' above the ':' following the base package name, and the '|'
+# on the right side marks the last column you can put a character in.  You must
+# make exactly 11 lines for the formatting to be correct.  It's also
+# customary to leave one space after the ':' except on otherwise blank lines.
+
+           |-----handy-ruler------------------------------------------------------|
+meterbridge: meterbridge (meters for the JACK audio server)
+meterbridge:
+meterbridge: Meterbridge for the JACK audio system supports different
+meterbridge: types of meter, rendered using SDL and user-editable pixmaps:
+meterbridge: PPM (Peak Program level), VU (Volume Unit), DPM )Digital Peak),
+meterbridge: JF (Jellyfish aka Goniometer), SCO (Scope) Meters.
+meterbridge:
+meterbridge:
+meterbridge:
+meterbridge: See also: http://plugin.org.uk/meterbridge/
+meterbridge:
