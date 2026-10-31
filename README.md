@@ -4,6 +4,7 @@ My SlackBuilds for packages Slackware-current doesn't ship, mostly audio
 software, with the local changes needed to build them on -current
 (GCC 16, CMake 4, Python 3.12, Qt5/Qt6).
 
+- `vensder/` - my own SlackBuilds (rewrites of alien/sbo ones), build tag `vensder`
 - `alien/` - from Alien Bob: <http://www.slackware.com/~alien/slackbuilds/>
 - `sbo/` - from SlackBuilds.org (target Slackware 15.0): <https://slackbuilds.org>
 
@@ -26,6 +27,7 @@ SlackBuild, except git snapshots (tarball only in Alien's build dir).
 | qmmp | alien | 2.4.2 | `SRCURL` moved to `files/qmmp/${VERSION%.*}/` |
 | carla | alien | 2.5.10 (Alien: 20241124 git snapshot) | stable release tarball from GitHub tag, renamed `carla-2.5.10.tar.gz`; built without MinGW-w64/wine |
 | surge-xt | alien | 1.3.4 | -DSURGE_SKIP_WERROR=ON (bundled LuaJIT/sqlite warnings break -Werror on GCC 16) |
+| calf | vensder | 0.90.9 (Alien: autotools build) | CMake build from GitHub tag tarball; seds for PKGDOCDIR (`config.h.cmake.in`) and gtk.rc `pixmap_path` (`gui/CMakeLists.txt`); `alien/calf` kept unchanged |
 
 ## Packages built as-is
 
@@ -80,6 +82,10 @@ su -c "SBDIR=$SBDIR ./build-slackbuild.sh -q -i <package>"
 # lmms (SBo)
 cd ~/git/slackbuilds-current/sbo/lmms
 su -c 'NUMJOBS=-j$(nproc) CMAKE_POLICY_VERSION_MINIMUM=3.5 sh ./lmms.SlackBuild 2>&1 | tee build.log'
+
+# vensder (from this repo)
+export SBDIR=~/git/slackbuilds-current/vensder
+su -c "SBDIR=$SBDIR PKGTAG=vensder ./build-slackbuild.sh -q -i <package>"
 ```
 
 Order for lmms: fltk, stk, libgig, portaudio, carla, then lmms.
