@@ -1,0 +1,19 @@
+# HOW TO EDIT THIS FILE:
+# The "handy ruler" below makes it easier to edit a package description.  Line
+# up the first '|' above the ':' following the base package name, and the '|'
+# on the right side marks the last column you can put a character in.  You must
+# make exactly 11 lines for the formatting to be correct.  It's also
+# customary to leave one space after the ':' except on otherwise blank lines.
+
+    |-----handy-ruler------------------------------------------------------|
+calf: calf (lv2/dssi plug-in suite and standalone jack-host)
+calf:
+calf: Calf Studio Gear is an audio plug-in pack for LV2 and JACK
+calf: environments under LINUX operating systems.
+calf: The suite contains lots of effects (delay, modulation, signal
+calf: processing, filters, equalizers, dynamics, distortion and mastering
+calf: effects), instruments (SF2 player, organ simulator and a monophonic
+calf: synthesizer) and tools (analyzer, mono/stereo tools, crossovers).
+calf:
+calf: calf home: http://calf-studio-gear.org/
+calf:
