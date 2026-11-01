@@ -25,7 +25,8 @@ su -c 'scripts/build-slackbuild.sh -t vensder -i calf'
 
 - `build-slackbuild.sh -t sbo` downloads missing sources from `DOWNLOAD` in
   `<name>.info` (MD5 checked only for the `.info` version) and reads
-  dependencies from `REQUIRES`. With `-d`, dependencies are searched in the
+  dependencies from `REQUIRES` (SBo names mapped to local ones via
+  `sbo/.aliases`, e.g. `jack jack2`). With `-d`, dependencies are searched in the
   selected tree first, then in `vensder`, `alien`, `sbo`.
 - `-a` works on installed packages with the tree's tag (`alien`, `vensder`,
   `_SBo`). Hold list: `<tree>/.hold`.

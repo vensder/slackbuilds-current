@@ -1,0 +1,2 @@
+# SBo dependency name -> local package name (used for REQUIRES in .info)
+jack jack2

@@ -123,6 +123,15 @@ sbo_location() {
         found && /^SLACKBUILD LOCATION: / { sub(/^SLACKBUILD LOCATION: \.\//, ""); print; exit }' "$SBO_LIST"
 }
 
+# Map SBo dependency names (stdin, one per line) to local package names
+# using sbo/.aliases ("<sbo name> <local name>" per line, # comments),
+# e.g. "jack jack2"
+sbo_alias() {
+    awk -v f="$REPO_DIR/sbo/.aliases" '
+        BEGIN { while ((getline l < f) > 0) { sub(/#.*/, "", l); split(l, a, " "); if (a[2] != "") m[a[1]] = a[2] } }
+        { print (($1 in m) ? m[$1] : $1) }'
+}
+
 # $1 = <name> or <category>/<name>, $2 = parent package (empty for top level)
 download_sbo() {
     local arg=$1 parent=$2 name loc t dep found
@@ -175,7 +184,7 @@ download_sbo() {
         return 0
     fi
     # %README% means "see README for optional deps", not a package
-    for dep in $(. "$SBDIR/$name/$name.info" 2>/dev/null; echo "$REQUIRES"); do
+    for dep in $(. "$SBDIR/$name/$name.info" 2>/dev/null; echo "$REQUIRES" | tr -s ' ' '\n' | sbo_alias); do
         [ "$dep" = "%README%" ] && continue
         download_sbo "$dep" "$name" || return 1
     done

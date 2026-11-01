@@ -36,7 +36,7 @@ Usage: $0 [-t tree] [-cdfinqv] [-V version] <package>
   -v          verbose: show URLs requested by the upstream version check
   -V version  build this exact version of <package>
 Dependencies come from slack-required (alien, vensder) or REQUIRES in
-<package>.info (sbo); they are looked up in the selected tree first, then in
+<package>.info (sbo, names mapped via sbo/.aliases); they are looked up in the selected tree first, then in
 the others ($TREES).
 sbo: missing sources are downloaded from DOWNLOAD in <package>.info (MD5
 checked only for the .info version; for -V/-n the version in the URL is replaced).
@@ -237,6 +237,15 @@ fetch_sources() {
     done < <(info_sources "$info")
 }
 
+# Map SBo dependency names (stdin, one per line) to local package names
+# using sbo/.aliases ("<sbo name> <local name>" per line, # comments),
+# e.g. "jack jack2"
+sbo_alias() {
+    awk -v f="$REPO_DIR/sbo/.aliases" '
+        BEGIN { while ((getline l < f) > 0) { sub(/#.*/, "", l); split(l, a, " "); if (a[2] != "") m[a[1]] = a[2] } }
+        { print (($1 in m) ? m[$1] : $1) }'
+}
+
 # Dir holding <package>.SlackBuild: <tree>/<pkg>/build or <tree>/<pkg>.
 # Searches $SBDIR, then (unless $2 is "strict") the other trees.
 find_build_dir() {
@@ -409,7 +418,8 @@ process_pkg() {
         mapfile -t deps < <(awk '!/^#/ && NF { print $1 }' "$build_dir/slack-required")
     elif [ -n "$info_file" ]; then
         # %README% means "see README for optional deps", not a package
-        mapfile -t deps < <(info_var "$info_file" REQUIRES | tr -s ' ' '\n' | grep -v -e '^%README%$' -e '^$')
+        mapfile -t deps < <(info_var "$info_file" REQUIRES | tr -s ' ' '\n' \
+            | grep -v -e '^%README%$' -e '^$' | sbo_alias)
     fi
     for dep in "${deps[@]}"; do
         if [ $DEPS -eq 1 ]; then
