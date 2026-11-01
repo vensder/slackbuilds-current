@@ -21,7 +21,7 @@ usage() {
 Usage: $0 [-t tree] [-cdfinqv] [-V version] <package>
        $0 [-t tree] -a [-cdfinqv]
   -t tree     SlackBuild tree: alien (default), vensder or sbo
-              ($REPO_DIR/<tree>, override with SBDIR=...)
+              ($REPO_DIR/<tree>; without -t, SBDIR=... overrides it)
   -a          all installed packages with the tree's build tag
               (alien, vensder, _SBo; override with PKGTAG=...) instead of <package>;
               -a -c checks them all, -a -n -i upgrades them to newest upstream
@@ -55,6 +55,7 @@ QUIET=0
 VERBOSE=0
 USER_VER=
 TREE=alien
+TREE_SET=0
 while getopts "acdfinqt:vV:h" opt; do
     case $opt in
         a) ALL=1 ;;
@@ -64,7 +65,7 @@ while getopts "acdfinqt:vV:h" opt; do
         i) INSTALL=1 ;;
         n) NEWEST=1 ;;
         q) QUIET=1 ;;
-        t) TREE=$OPTARG ;;
+        t) TREE=$OPTARG; TREE_SET=1 ;;
         v) VERBOSE=1 ;;
         V) USER_VER=$OPTARG ;;
         *) usage ;;
@@ -75,6 +76,10 @@ case " $TREES " in
     *" $TREE "*) ;;
     *) echo "ERROR: unknown tree '$TREE' (use one of: $TREES)"; exit 1 ;;
 esac
+# -t wins over SBDIR/PKGTAG/HOLD_FILE left in the environment
+if [ $TREE_SET -eq 1 ]; then
+    unset SBDIR PKGTAG HOLD_FILE
+fi
 SBDIR=${SBDIR:-$REPO_DIR/$TREE}
 # Build tag of the packages handled by -a
 case $TREE in

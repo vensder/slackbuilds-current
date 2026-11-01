@@ -31,7 +31,7 @@ Usage: $0 [-t alien|sbo] <package|link>
             $0 -t sbo audio/yoshimi
             (SBo $SBO_VER, override with SBO_VER=...; an existing
             sbo/<package> dir is kept, remove it to download again)
-SlackBuilds dir: $REPO_DIR/<tree> (override with SBDIR=...)
+SlackBuilds dir: $REPO_DIR/<tree> (without -t, SBDIR=... overrides it)
 EOF
     exit 1
 }
@@ -39,7 +39,7 @@ EOF
 TREE=alien
 while getopts "t:h" opt; do
     case $opt in
-        t) TREE=$OPTARG ;;
+        t) TREE=$OPTARG; unset SBDIR ;;
         *) usage ;;
     esac
 done
