@@ -25,3 +25,6 @@ robots.txt
 
 # Renamed old tarballs
 *.backup
+
+# Patches in root dir
+*.patch
