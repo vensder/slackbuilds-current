@@ -54,9 +54,9 @@ set -e
 rm -rf $PKG
 mkdir -p $TMP $PKG $OUTPUT
 cd $TMP
-rm -rf $PRGNAM-$VERSION
+rm -rf ${PRGNAM}_$VERSION
 tar jxvf $CWD/$PRGNAM-$VERSION.tar.bz2
-cd $PRGNAM-$VERSION
+cd ${PRGNAM}_$VERSION
 chown -R root:root .
 find . -type f -exec chmod 644 {} + -o -type d -exec chmod 755 {} +
 
@@ -81,7 +81,7 @@ cd ../..
 gzip -9 $PKG/usr/man/man*/*
 
 PKGDOC=$PKG/usr/doc/$PRGNAM-$VERSION
-cp -a Changelog COPYING README.txt $PKGDOC
+cp -a Changelog COPYING README* $PKGDOC
 find $PKGDOC -type d -exec chmod 755 {} +
 cat $CWD/$PRGNAM.SlackBuild > $PKGDOC/$PRGNAM.SlackBuild
 
