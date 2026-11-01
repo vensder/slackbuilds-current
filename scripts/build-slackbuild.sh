@@ -1,31 +1,29 @@
 #!/usr/bin/env bash
 #
-# Build (and optionally install) SlackBuilds fetched with download-slackbuilds.sh.
+# Build (and optionally install) SlackBuilds from this repo's trees:
+#   alien/<package>/build/    (Alien Bob, fetched with download-slackbuilds.sh)
+#   vensder/<package>/build/  (own SlackBuilds)
+#   sbo/<package>/            (SlackBuilds.org; source downloaded from .info)
 #
-# Usage: build-slackbuild.sh [-cdfinqv] [-V version] <package>
-#        build-slackbuild.sh -a [-cdfinqv]    (all installed packages tagged "alien")
+# Usage: build-slackbuild.sh [-t tree] [-cdfinqv] [-V version] <package>
+#        build-slackbuild.sh [-t tree] -a [-cdfinqv]
 
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
-# Default: ~/slackbuilds of the real user, also when run via su/sudo
-# (where $HOME may point to /root). Override with SBDIR=...
-REAL_USER=${SUDO_USER:-$(logname 2>/dev/null)}
-REAL_HOME=$(getent passwd "$REAL_USER" 2>/dev/null | cut -d: -f6)
-SBDIR=${SBDIR:-${REAL_HOME:-$HOME}/slackbuilds}
+REPO_DIR=$(dirname "$SCRIPT_DIR")
+# Trees in the order searched for dependencies (after the selected one)
+TREES="vensder alien sbo"
 OUTPUT=${OUTPUT:-/tmp}
 export OUTPUT
 PKGDB=${PKGDB:-/var/lib/pkgtools/packages}
-# Build tag of the packages handled by -a
-PKGTAG=${PKGTAG:-alien}
-# Packages on hold (one name per line, # comments): skipped by -a and -d,
-# built only when named directly. E.g. carla kept at a stable release while
-# the SlackBuild default is a newer-sorting git snapshot.
-HOLD_FILE=${HOLD_FILE:-$SBDIR/.hold}
 
 usage() {
     cat <<EOF
-Usage: $0 [-cdfinqv] [-V version] <package>
-       $0 -a [-cdfinqv]
-  -a          all installed packages with build tag "$PKGTAG" (instead of <package>);
+Usage: $0 [-t tree] [-cdfinqv] [-V version] <package>
+       $0 [-t tree] -a [-cdfinqv]
+  -t tree     SlackBuild tree: alien (default), vensder or sbo
+              ($REPO_DIR/<tree>, override with SBDIR=...)
+  -a          all installed packages with the tree's build tag
+              (alien, vensder, _SBo; override with PKGTAG=...) instead of <package>;
               -a -c checks them all, -a -n -i upgrades them to newest upstream
   -c          check only: show versions (incl. upstream), do not build
   -d          also process dependencies from slack-required, recursively;
@@ -37,8 +35,12 @@ Usage: $0 [-cdfinqv] [-V version] <package>
               (shows the last lines on failure)
   -v          verbose: show URLs requested by the upstream version check
   -V version  build this exact version of <package>
-SlackBuilds dir: $SBDIR (override with SBDIR=...)
-Hold list:       $HOLD_FILE (skipped by -a/-d; override with HOLD_FILE=...)
+Dependencies come from slack-required (alien, vensder) or REQUIRES in
+<package>.info (sbo); they are looked up in the selected tree first, then in
+the others ($TREES).
+sbo: missing sources are downloaded from DOWNLOAD in <package>.info (MD5
+checked only for the .info version; for -V/-n the version in the URL is replaced).
+Hold list: <tree>/.hold (skipped by -a/-d; override with HOLD_FILE=...)
 EOF
     exit 1
 }
@@ -52,7 +54,8 @@ NEWEST=0
 QUIET=0
 VERBOSE=0
 USER_VER=
-while getopts "acdfinqvV:h" opt; do
+TREE=alien
+while getopts "acdfinqt:vV:h" opt; do
     case $opt in
         a) ALL=1 ;;
         c) CHECK_ONLY=1 ;;
@@ -61,12 +64,27 @@ while getopts "acdfinqvV:h" opt; do
         i) INSTALL=1 ;;
         n) NEWEST=1 ;;
         q) QUIET=1 ;;
+        t) TREE=$OPTARG ;;
         v) VERBOSE=1 ;;
         V) USER_VER=$OPTARG ;;
         *) usage ;;
     esac
 done
 shift $((OPTIND - 1))
+case " $TREES " in
+    *" $TREE "*) ;;
+    *) echo "ERROR: unknown tree '$TREE' (use one of: $TREES)"; exit 1 ;;
+esac
+SBDIR=${SBDIR:-$REPO_DIR/$TREE}
+# Build tag of the packages handled by -a
+case $TREE in
+    sbo) PKGTAG=${PKGTAG:-_SBo} ;;
+    *)   PKGTAG=${PKGTAG:-$TREE} ;;
+esac
+# Packages on hold (one name per line, # comments): skipped by -a and -d,
+# built only when named directly. E.g. carla kept at a stable release while
+# the SlackBuild default is a newer-sorting git snapshot.
+HOLD_FILE=${HOLD_FILE:-$SBDIR/.hold}
 if [ $ALL -eq 1 ]; then
     [ $# -eq 0 ] || usage
     if [ -n "$USER_VER" ]; then
@@ -151,6 +169,90 @@ extract_versions() {
     grep -oE "${pre}[0-9]+(\.[0-9]+)*${suf}" | sed -E "s/^${pre}//; s/${suf}\$//"
 }
 
+# Print a variable from an SBo .info file (shell variable assignments)
+info_var() {
+    ( . "$1" 2>/dev/null; printf '%s\n' "${!2}" )
+}
+
+# Source URLs of an SBo .info, one "url md5" per line
+# (DOWNLOAD_x86_64 if set and not UNSUPPORTED, else DOWNLOAD)
+info_sources() {
+    (
+        . "$1" 2>/dev/null
+        if [ "$(uname -m)" = x86_64 ] && [ -n "$DOWNLOAD_x86_64" ] \
+            && [ "$DOWNLOAD_x86_64" != UNSUPPORTED ]; then
+            DOWNLOAD=$DOWNLOAD_x86_64
+            MD5SUM=$MD5SUM_x86_64
+        fi
+        # shellcheck disable=SC2086
+        set -- $MD5SUM
+        for url in $DOWNLOAD; do
+            echo "$url ${1:-}"
+            [ $# -gt 0 ] && shift
+        done
+    )
+}
+
+# Source URL template (@VERSION@ for the version) of an SBo .info
+info_url_template() {
+    local ver url
+    ver=$(info_var "$1" VERSION)
+    url=$(info_sources "$1" | awk 'NR == 1 { print $1 }')
+    [ -n "$ver" ] && [ -n "$url" ] && printf '%s\n' "${url//$ver/@VERSION@}"
+}
+
+# Download missing sources of an SBo package into its dir.
+# $1 = dir, $2 = .info file, $3 = version to build
+fetch_sources() {
+    local dir=$1 info=$2 target=$3 info_ver url md5 file
+    info_ver=$(info_var "$info" VERSION)
+    while read -r url md5; do
+        [ -n "$url" ] || continue
+        if [ "$target" != "$info_ver" ]; then
+            url=${url//$info_ver/$target}
+            md5=
+        fi
+        file=${url##*/}
+        if [ -f "$dir/$file" ]; then
+            echo "Source exists:      $file"
+        else
+            echo "Downloading:        $url"
+            if ! wget -q --show-progress -T 30 -t 3 -O "$dir/$file.part" "$url"; then
+                rm -f "$dir/$file.part"
+                echo "ERROR: download failed. Download it manually into $dir"
+                return 1
+            fi
+            mv "$dir/$file.part" "$dir/$file"
+        fi
+        if [ -n "$md5" ]; then
+            ( cd "$dir" && echo "$md5  $file" | md5sum -c ) || return 1
+        else
+            echo "No MD5 for $target (.info has $info_ver), not checked"
+        fi
+    done < <(info_sources "$info")
+}
+
+# Dir holding <package>.SlackBuild: <tree>/<pkg>/build or <tree>/<pkg>.
+# Searches $SBDIR, then (unless $2 is "strict") the other trees.
+find_build_dir() {
+    local pkg=$1 d t
+    local -a dirs=("$SBDIR")
+    if [ "$2" != strict ]; then
+        for t in $TREES; do
+            [ "$REPO_DIR/$t" != "$SBDIR" ] && dirs+=("$REPO_DIR/$t")
+        done
+    fi
+    for d in "${dirs[@]}"; do
+        for d in "$d/$pkg/build" "$d/$pkg"; do
+            if [ -f "$d/$pkg.SlackBuild" ]; then
+                echo "$d"
+                return 0
+            fi
+        done
+    done
+    return 1
+}
+
 # Latest stable version from the source site of a SRCURL template
 latest_upstream() {
     local tpl=$1 file pre suf path
@@ -202,8 +304,7 @@ NOSB=()       # installed packages without a downloaded SlackBuild
 # $1 = package, $2 = parent package (empty for the top-level one)
 process_pkg() {
     local pkg=$1 parent=$2
-    local build_dir=$SBDIR/$1/build
-    local sb_file=$build_dir/$1.SlackBuild
+    local build_dir sb_file info_file
     local prgnam sb_ver inst_ver latest from target pkgfile dep need_build=1
     local -a deps=()
 
@@ -224,17 +325,29 @@ process_pkg() {
         echo "== $pkg"
     fi
 
-    if [ ! -f "$sb_file" ]; then
+    # The package itself only from the selected tree, dependencies from any
+    if [ -n "$parent" ]; then
+        build_dir=$(find_build_dir "$pkg")
+    else
+        build_dir=$(find_build_dir "$pkg" strict)
+    fi
+    if [ -z "$build_dir" ]; then
         inst_ver=$(installed_version "$pkg")
         if [ -n "$inst_ver" ]; then
             echo "Installed version:  $inst_ver (no SlackBuild downloaded, skipping)"
             NOSB+=("$pkg")
             return 0
         fi
-        echo "ERROR: $sb_file not found. Download it first, e.g.:"
-        echo "  $SCRIPT_DIR/download-slackbuilds.sh http://www.slackware.com/~alien/slackbuilds/$pkg/build/"
+        echo "ERROR: no $pkg.SlackBuild in $SBDIR/$pkg. Download it first, e.g.:"
+        case $TREE in
+            alien|sbo) echo "  $SCRIPT_DIR/download-slackbuilds.sh -t $TREE $pkg" ;;
+        esac
         return 1
     fi
+    sb_file=$build_dir/$pkg.SlackBuild
+    info_file=$build_dir/$pkg.info
+    [ -f "$info_file" ] || info_file=
+    echo "SlackBuild dir:     ${build_dir#"$REPO_DIR"/}"
 
     prgnam=$(sed -nE 's/^PRGNAM=//p' "$sb_file" | head -n1 | tr -d '"')
     prgnam=${prgnam:-$pkg}
@@ -248,7 +361,11 @@ process_pkg() {
     if [ -z "$parent" ] && [ -n "$USER_VER" ]; then
         target=$USER_VER
     elif [ $NEWEST -eq 1 ] || [ $CHECK_ONLY -eq 1 ]; then
-        latest=$(latest_upstream "$(srcurl_template "$sb_file")")
+        if [ -n "$info_file" ]; then
+            latest=$(latest_upstream "$(info_url_template "$info_file")")
+        else
+            latest=$(latest_upstream "$(srcurl_template "$sb_file")")
+        fi
         from="source site"
         if [ -z "$latest" ]; then
             latest=$(repology_version "$prgnam")
@@ -285,6 +402,9 @@ process_pkg() {
     # Dependencies: process them with -d, otherwise just warn
     if [ -f "$build_dir/slack-required" ]; then
         mapfile -t deps < <(awk '!/^#/ && NF { print $1 }' "$build_dir/slack-required")
+    elif [ -n "$info_file" ]; then
+        # %README% means "see README for optional deps", not a package
+        mapfile -t deps < <(info_var "$info_file" REQUIRES | tr -s ' ' '\n' | grep -v -e '^%README%$' -e '^$')
     fi
     for dep in "${deps[@]}"; do
         if [ $DEPS -eq 1 ]; then
@@ -296,6 +416,10 @@ process_pkg() {
 
     [ $need_build -eq 1 ] || return 0
     [ $CHECK_ONLY -eq 1 ] && return 0
+
+    if [ -n "$info_file" ]; then
+        fetch_sources "$build_dir" "$info_file" "$target" || return 1
+    fi
 
     echo
     echo "== Building $prgnam $target in $build_dir ..."

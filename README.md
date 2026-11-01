@@ -8,8 +8,34 @@ software, with the local changes needed to build them on -current
 - `alien/` - from Alien Bob: <http://www.slackware.com/~alien/slackbuilds/>
 - `sbo/` - from SlackBuilds.org (target Slackware 15.0): <https://slackbuilds.org>
 
-Helper scripts and guides are in the `slackware-notes` repo:
-`download-slackbuilds.sh`, `build-slackbuild.sh`,
+## Scripts
+
+Run from the repo; `-t` picks the tree (`alien` is the default):
+
+```
+# download a SlackBuild and its dependencies (alien or sbo)
+scripts/download-slackbuilds.sh amsynth
+scripts/download-slackbuilds.sh -t sbo yoshimi
+
+# check versions (no root needed), then build and install
+scripts/build-slackbuild.sh -t sbo -c yoshimi
+su -c 'scripts/build-slackbuild.sh -t sbo -i -V 2.3.6.5 yoshimi'
+su -c 'scripts/build-slackbuild.sh -t vensder -i calf'
+```
+
+- `build-slackbuild.sh -t sbo` downloads missing sources from `DOWNLOAD` in
+  `<name>.info` (MD5 checked only for the `.info` version) and reads
+  dependencies from `REQUIRES`. With `-d`, dependencies are searched in the
+  selected tree first, then in `vensder`, `alien`, `sbo`.
+- `-a` works on installed packages with the tree's tag (`alien`, `vensder`,
+  `_SBo`). Hold list: `<tree>/.hold`.
+- `download-slackbuilds.sh -t sbo` keeps an existing `sbo/<name>` dir (local
+  changes); remove it to download again. Installed dependencies and ones
+  already in `alien/` or `vensder/` are skipped.
+- `scripts/check-official-overlap.sh` lists installed third-party packages
+  that Slackware now ships.
+
+Guides are in the `slackware-notes` repo:
 `README-alien-slackbuilds-scripts.md`, `README-sbo-custom-slackbuilds.md`.
 
 Source tarballs and built packages are not stored here (see `.gitignore`).
@@ -23,6 +49,7 @@ SlackBuild, except git snapshots (tarball only in Alien's build dir).
 | fltk | sbo | 1.4.5 (SBo: 1.3.8) | doc globs `CHANGES* CREDITS* README*`; `rm -rf $PKG/usr/man/cat*` |
 | stk | sbo | 5.0.1 (SBo: 4.4.4) | doc globs `INSTALL* README*` |
 | lmms | sbo | 1.2.2 | CMake 4 seds (CMP0026, CMP0050, LOCATION); `$(pkg-config --cflags cairo)` in `SLKCFLAGS`; `#include "CarlaDefines.h"` in `plugins/carlabase/carla.h` |
+| yoshimi | sbo | 2.3.6.5 (SBo: 2.3.2) | top dir `${PRGNAM}_$VERSION`; doc glob `README*` |
 | zynaddsubfx | alien | 3.0.6 | `patches/zynaddsubfx-3.0.6-mxml4.patch` (upstream PR #315, via Gentoo) for mxml 4 |
 | qmmp | alien | 2.4.2 | `SRCURL` moved to `files/qmmp/${VERSION%.*}/` |
 | carla | alien | 2.5.10 (Alien: 20241124 git snapshot) | stable release tarball from GitHub tag, renamed `carla-2.5.10.tar.gz`; built without MinGW-w64/wine |
