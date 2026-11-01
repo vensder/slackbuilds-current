@@ -27,4 +27,5 @@ robots.txt
 *.backup
 
 # Patches in root dir
-*.patch
+/*.patch
+
