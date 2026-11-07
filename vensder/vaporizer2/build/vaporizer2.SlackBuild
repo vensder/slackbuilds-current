@@ -1,0 +1,271 @@
+#!/bin/sh
+# Copyright 2026  Dmitrii (vensder)
+# Based on Eric Hameleers' SlackBuild template.
+# All rights reserved.
+#
+#   Permission to use, copy, modify, and distribute this software for
+#   any purpose with or without fee is hereby granted, provided that
+#   the above copyright notice and this permission notice appear in all
+#   copies.
+#
+#   THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+#   WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+#   MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+#   IN NO EVENT SHALL THE AUTHORS AND COPYRIGHT HOLDERS AND THEIR
+#   CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+#   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+#   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+#   USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+#   ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+#   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+#   OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+#   SUCH DAMAGE.
+# -----------------------------------------------------------------------------
+#
+# Slackware SlackBuild script
+# ===========================
+# For:         vaporizer2
+# Descr:       VAST Dynamics Vaporizer2 hybrid wavetable synthesizer
+# URL:         https://github.com/VASTDynamics/Vaporizer2
+# Build needs: fftw, jack2, alsa-lib, mesa, X11 libs (JUCE bundles LV2/VST3/CLAP SDKs)
+# Needs:       fftw, jack2
+# Changelog:
+# 3.5.0-1:     07/nov/2026
+#              * Initial build from the v3.5.0 GitHub tag. The tag tarball
+#                has no git submodules, so JUCE, clap-juce-extensions (with
+#                clap and clap-helpers), muFFT and AnaMark-Tuning-Library are
+#                downloaded as tarballs of the commits pinned by that tag.
+#
+# Run 'sh vaporizer2.SlackBuild' to build a Slackware package.
+# The package (.t?z) and .txt file as well as build logs are created in /tmp .
+# Install the package using 'installpkg' or 'upgradepkg --install-new'.
+#
+# -----------------------------------------------------------------------------
+
+PRGNAM=vaporizer2
+VERSION=${VERSION:-3.5.0}
+BUILD=${BUILD:-1}
+NUMJOBS=${NUMJOBS:-" -j$(nproc) "}
+TAG=${TAG:-vensder}
+
+# Set to OFF for CPUs without AVX (builds the SSE2 code path):
+BUILD_AVX=${BUILD_AVX:-ON}
+
+DOCS="LICENSE README.md VERSION Documentation/*.pdf"
+
+# Submodule commits pinned by the v$VERSION tag.
+# On a version bump, get them with: git ls-tree -r v<new> | grep ^160000
+# (clap and clap-helpers: the same inside clap-juce-extensions at its commit).
+JUCE_COMMIT=${JUCE_COMMIT:-d054f0d14dcac387aebda44ce5d792b5e7a625b3}     # JUCE 7.0.9+
+CJE_COMMIT=${CJE_COMMIT:-54d83e121545490fdbb2d3dec3ba0c1da6005dde}       # clap-juce-extensions
+CLAP_COMMIT=${CLAP_COMMIT:-41964fa3f44fdbf6feb20df528a9cdf2cc3b05ba}     # clap 1.1.8
+CLAPH_COMMIT=${CLAPH_COMMIT:-41e1086488f5cd27da871d07edb8eccea99e556d}   # clap-helpers
+MUFFT_COMMIT=${MUFFT_COMMIT:-47bb08652eab399c2c7d460abe5184857110f130}   # muFFT
+ANAMARK_COMMIT=${ANAMARK_COMMIT:-9d6160141f53235807ac65381ab3839a35ab4856} # AnaMark-Tuning-Library
+
+# Where do we look for sources?
+SRCDIR=$(cd $(dirname $0); pwd)
+
+# Place to build (TMP) package (PKG) and output (OUTPUT) the program:
+TMP=${TMP:-/tmp/build}
+PKG=$TMP/package-$PRGNAM
+OUTPUT=${OUTPUT:-/tmp}
+
+# The tag tarball unpacks to Vaporizer2-$VERSION/ (about 600 MB, mostly
+# presets and wavetables). The submodule tarballs unpack to <repo>-<commit>/ :
+SOURCE[0]="$SRCDIR/Vaporizer2-${VERSION}.tar.gz"
+SRCURL[0]="https://github.com/VASTDynamics/Vaporizer2/archive/refs/tags/v${VERSION}.tar.gz"
+SOURCE[1]="$SRCDIR/JUCE-${JUCE_COMMIT:0:10}.tar.gz"
+SRCURL[1]="https://github.com/juce-framework/JUCE/archive/${JUCE_COMMIT}.tar.gz"
+SOURCE[2]="$SRCDIR/clap-juce-extensions-${CJE_COMMIT:0:10}.tar.gz"
+SRCURL[2]="https://github.com/free-audio/clap-juce-extensions/archive/${CJE_COMMIT}.tar.gz"
+SOURCE[3]="$SRCDIR/clap-${CLAP_COMMIT:0:10}.tar.gz"
+SRCURL[3]="https://github.com/free-audio/clap/archive/${CLAP_COMMIT}.tar.gz"
+SOURCE[4]="$SRCDIR/clap-helpers-${CLAPH_COMMIT:0:10}.tar.gz"
+SRCURL[4]="https://github.com/free-audio/clap-helpers/archive/${CLAPH_COMMIT}.tar.gz"
+SOURCE[5]="$SRCDIR/muFFT-${MUFFT_COMMIT:0:10}.tar.gz"
+SRCURL[5]="https://github.com/Themaister/muFFT/archive/${MUFFT_COMMIT}.tar.gz"
+SOURCE[6]="$SRCDIR/AnaMark-Tuning-Library-${ANAMARK_COMMIT:0:10}.tar.gz"
+SRCURL[6]="https://github.com/zardini123/AnaMark-Tuning-Library/archive/${ANAMARK_COMMIT}.tar.gz"
+
+##
+## --- with a little luck, you won't have to edit below this point --- ##
+##
+# Automatically determine the architecture we're building on:
+if [ -z "$ARCH" ]; then
+  case "$(uname -m)" in
+    i?86) ARCH=i586 ;;
+    arm*) readelf /usr/bin/file -A | egrep -q "Tag_CPU.*[4,5]" && ARCH=arm || ARCH=armv7hl ;;
+    # Unless $ARCH is already set, use uname -m for all other archs:
+    *) ARCH=$(uname -m) ;;
+  esac
+  export ARCH
+fi
+# Set CFLAGS/CXXFLAGS and LIBDIRSUFFIX:
+case "$ARCH" in
+  i?86)      SLKCFLAGS="-O2 -march=${ARCH} -mtune=i686"
+             SLKLDFLAGS=""; LIBDIRSUFFIX=""
+             ;;
+  x86_64)    SLKCFLAGS="-O2 -fPIC"
+             SLKLDFLAGS="-L/usr/lib64"; LIBDIRSUFFIX="64"
+             ;;
+  armv7hl)   SLKCFLAGS="-O2 -march=armv7-a -mfpu=vfpv3-d16"
+             SLKLDFLAGS=""; LIBDIRSUFFIX=""
+             ;;
+  *)         SLKCFLAGS=${SLKCFLAGS:-"-O2"}
+             SLKLDFLAGS=${SLKLDFLAGS:-""}; LIBDIRSUFFIX=${LIBDIRSUFFIX:-""}
+             ;;
+esac
+
+case "$ARCH" in
+    arm*)    TARGET=$ARCH-slackware-linux-gnueabi ;;
+    *)       TARGET=$ARCH-slackware-linux ;;
+esac
+
+# Exit the script on errors:
+set -e
+trap 'echo "$0 FAILED at line ${LINENO}" | tee $OUTPUT/error-${PRGNAM}.log' ERR
+# Catch unitialized variables:
+set -u
+P1=${1:-1}
+
+# Save old umask and set to 0022:
+_UMASK_=$(umask)
+umask 0022
+
+# Create working directories:
+mkdir -p $OUTPUT          # place for the package to be saved
+mkdir -p $TMP/tmp-$PRGNAM # location to build the source
+mkdir -p $PKG             # place for the package to be built
+rm -rf $PKG/*             # always erase old package's contents
+rm -rf $TMP/tmp-$PRGNAM/* # remove the remnants of previous build
+rm -rf $OUTPUT/{configure,make,install,error,makepkg,patch}-$PRGNAM.log
+                          # remove old log files
+
+# Source file availability:
+for (( i = 0; i < ${#SOURCE[*]}; i++ )) ; do
+  if ! [ -f ${SOURCE[$i]} ]; then
+    echo "Source '$(basename ${SOURCE[$i]})' not available yet..."
+    # Check if the $SRCDIR is writable at all - if not, download to $OUTPUT
+    [ -w "$SRCDIR" ] || SOURCE[$i]="$OUTPUT/$(basename ${SOURCE[$i]})"
+    if [ -f ${SOURCE[$i]} ]; then echo "Ah, found it!"; continue; fi
+    if ! [ "x${SRCURL[$i]}" == "x" ]; then
+      echo "Will download file to $(dirname $SOURCE[$i])"
+      wget --no-check-certificate -nv -T 20 -O "${SOURCE[$i]}" "${SRCURL[$i]}" || true
+      if [ $? -ne 0 -o ! -s "${SOURCE[$i]}" ]; then
+        echo "Fail to download '$(basename ${SOURCE[$i]})'. Aborting the build."
+        mv -f "${SOURCE[$i]}" "${SOURCE[$i]}".FAIL
+        exit 1
+      fi
+    fi
+    if [ ! -f "${SOURCE[$i]}" -o ! -s "${SOURCE[$i]}" ]; then
+      echo "File '$(basename ${SOURCE[$i]})' not available. Aborting the build."
+      exit 1
+    fi
+  fi
+done
+
+if [ "$P1" == "--download" ]; then
+  echo "Download complete."
+  exit 0
+fi
+
+# --- PACKAGE BUILDING ---
+
+echo "++"
+echo "|| $PRGNAM-$VERSION"
+echo "++"
+
+cd $TMP/tmp-$PRGNAM
+echo "Extracting the source archive(s) for $PRGNAM..."
+tar -xf ${SOURCE[0]}
+cd Vaporizer2-${VERSION}
+
+# Put each submodule tarball where git would have checked it out:
+unpack_submodule() {
+  rm -rf "$2"
+  mkdir -p "$2"
+  tar -xf "$1" --strip-components=1 -C "$2"
+}
+unpack_submodule ${SOURCE[1]} JUCE
+unpack_submodule ${SOURCE[2]} clap-juce-extensions
+unpack_submodule ${SOURCE[3]} clap-juce-extensions/clap-libs/clap
+unpack_submodule ${SOURCE[4]} clap-juce-extensions/clap-libs/clap-helpers
+unpack_submodule ${SOURCE[5]} VASTvaporizer/Source/muFFT
+unpack_submodule ${SOURCE[6]} VASTvaporizer/Source/AnaMark-Tuning-Library
+
+# Not used on Linux (Windows/macOS SDKs and a prebuilt fftw):
+rm -rf AAX_SDK VST_SDK asiosdk fftw-3.3.10
+
+chown -R root:root .
+chmod -R u+w,go+r-w,a+rX-st .
+
+echo Building ...
+
+# CMakeLists.txt installs the standalone to bin, the LV2/VST3 bundles to
+# $libdir/lv2 and $libdir/vst3, the CLAP plugin to $libdir/clap and the
+# Noises/Tables/Presets to /usr/share/Vaporizer2 (the plugin looks there,
+# via CMAKE_INSTALL_FULL_DATAROOTDIR).
+cmake -S $(pwd) -B build-${PRGNAM} \
+  -DCMAKE_C_FLAGS:STRING="$SLKCFLAGS" \
+  -DCMAKE_CXX_FLAGS:STRING="$SLKCFLAGS" \
+  -DCMAKE_C_FLAGS_RELEASE:STRING="$SLKCFLAGS" \
+  -DCMAKE_CXX_FLAGS_RELEASE:STRING="$SLKCFLAGS" \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=/usr \
+  -DCMAKE_INSTALL_LIBDIR=lib${LIBDIRSUFFIX} \
+  -DBUILD_AVX=${BUILD_AVX} \
+  2>&1 | tee $OUTPUT/configure-${PRGNAM}.log
+cmake --build build-${PRGNAM} $NUMJOBS \
+  2>&1 | tee $OUTPUT/make-${PRGNAM}.log
+DESTDIR=$PKG cmake --install build-${PRGNAM} \
+  2>&1 | tee $OUTPUT/install-${PRGNAM}.log
+
+# The standalone is installed as VASTvaporizer2; add a shorter name:
+ln -s VASTvaporizer2 $PKG/usr/bin/Vaporizer2
+
+# Desktop file and icon for the standalone:
+mkdir -p $PKG/usr/share/applications $PKG/usr/share/pixmaps
+install -m0644 $SRCDIR/${PRGNAM}.desktop $PKG/usr/share/applications/
+install -m0644 VASTvaporizer/Resources/logokreisvdalpha.png \
+  $PKG/usr/share/pixmaps/${PRGNAM}.png
+
+# Add this to the doinst.sh:
+mkdir -p $PKG/install
+cat <<EOINS >> $PKG/install/doinst.sh
+# Update the desktop database:
+if [ -x usr/bin/update-desktop-database ]; then
+  chroot . /usr/bin/update-desktop-database usr/share/applications > /dev/null 2>&1
+fi
+
+EOINS
+
+# Add documentation:
+mkdir -p $PKG/usr/doc/$PRGNAM-$VERSION
+cp -a $DOCS $PKG/usr/doc/$PRGNAM-$VERSION || true
+cat $SRCDIR/slack-required > $PKG/usr/doc/$PRGNAM-$VERSION/slack-required
+cat $SRCDIR/$(basename $0) > $PKG/usr/doc/$PRGNAM-$VERSION/$PRGNAM.SlackBuild
+chown -R root:root $PKG/usr/doc/$PRGNAM-$VERSION
+find $PKG/usr/doc -type d -exec chmod 755 {} \;
+find $PKG/usr/doc -type f -exec chmod 644 {} \;
+
+# Strip binaries (only bin and lib: the preset/wavetable names have spaces):
+find $PKG/usr/bin $PKG/usr/lib${LIBDIRSUFFIX} -type f | xargs file | grep -e "executable" -e "shared object" | grep ELF \
+  | cut -f 1 -d : | xargs strip --strip-unneeded 2> /dev/null || true
+
+# Add a package description:
+mkdir -p $PKG/install
+cat $SRCDIR/slack-desc > $PKG/install/slack-desc
+cat $SRCDIR/slack-required > $PKG/install/slack-required
+
+# Build the package:
+cd $PKG
+makepkg --linkadd y --chown n $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz} 2>&1 | tee $OUTPUT/makepkg-${PRGNAM}.log
+cd $OUTPUT
+md5sum ${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz} > ${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz}.md5
+cd -
+cat $PKG/install/slack-desc | grep "^${PRGNAM}" > $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.txt
+cat $PKG/install/slack-required > $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.dep
+
+# Restore the original umask:
+umask ${_UMASK_}

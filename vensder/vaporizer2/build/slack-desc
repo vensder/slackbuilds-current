@@ -1,0 +1,19 @@
+# HOW TO EDIT THIS FILE:
+# The "handy ruler" below makes it easier to edit a package description.  Line
+# up the first '|' above the ':' following the base package name, and the '|'
+# on the right side marks the last column you can put a character in.  You must
+# make exactly 11 lines for the formatting to be correct.  It's also
+# customary to leave one space after the ':' except on otherwise blank lines.
+
+          |-----handy-ruler------------------------------------------------------|
+vaporizer2: vaporizer2 (VAST Dynamics Vaporizer2 hybrid synthesizer)
+vaporizer2:
+vaporizer2: Vaporizer2 is a hybrid wavetable additive/subtractive synthesizer
+vaporizer2: with a wavetable editor, sampler, MSEG/LFO modulation, step
+vaporizer2: sequencer, arpeggiator and a large effects section.
+vaporizer2: This package has the LV2, VST3 and CLAP plugins, the standalone
+vaporizer2: JACK/ALSA application and the factory presets, wavetables and
+vaporizer2: noises in /usr/share/Vaporizer2.
+vaporizer2:
+vaporizer2: Homepage: https://github.com/VASTDynamics/Vaporizer2
+vaporizer2:

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Vaporizer2
+GenericName=Synthesizer
+Comment=VAST Dynamics Vaporizer2 hybrid wavetable synthesizer
+Exec=Vaporizer2
+Icon=vaporizer2
+Terminal=false
+Categories=X-DAW;AudioVideo;Audio;Midi;
