@@ -31,6 +31,8 @@
 # Needs:       fftw, jack2
 # Changelog:
 # 3.5.0-1:     07/nov/2026
+#              * Build without LTO (GCC 16 link errors); set -o pipefail
+#                so a failed build stops the script.
 #              * Initial build from the v3.5.0 GitHub tag. The tag tarball
 #                has no git submodules, so JUCE, clap-juce-extensions (with
 #                clap and clap-helpers), muFFT and AnaMark-Tuning-Library are
@@ -124,6 +126,8 @@ esac
 
 # Exit the script on errors:
 set -e
+# Fail when cmake fails, not only when tee does:
+set -o pipefail
 trap 'echo "$0 FAILED at line ${LINENO}" | tee $OUTPUT/error-${PRGNAM}.log' ERR
 # Catch unitialized variables:
 set -u
@@ -199,6 +203,10 @@ rm -rf AAX_SDK VST_SDK asiosdk fftw-3.3.10
 
 chown -R root:root .
 chmod -R u+w,go+r-w,a+rX-st .
+
+# JUCE's -flto breaks the VST3/Standalone link with GCC 16 (undefined
+# juce::AudioChannelSet::ambisonic, typeinfo for AudioProcessorListener):
+sed -i CMakeLists.txt -e '/juce::juce_recommended_lto_flags/d'
 
 echo Building ...
 
