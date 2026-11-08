@@ -35,6 +35,13 @@ su -c 'scripts/build-slackbuild.sh -t vensder -i calf'
   already in `alien/` or `vensder/` are skipped.
 - `scripts/check-official-overlap.sh` lists installed third-party packages
   that Slackware now ships.
+- `scripts/kernel-update.sh -c` lists installed kernel-generic versions,
+  checks the mirror for a newer one and prints recommended custom GRUB entries
+  (newest via `/boot/vmlinuz` + `/boot/initrd.gz`, older ones versioned).
+  Without `-c` (as root: `su -c 'scripts/kernel-update.sh'`) it downloads,
+  checks md5 + gpg and `installpkg`s the newer kernel after confirmation.
+  Old kernels are not removed; it prints the `removepkg` commands.
+  Steps: `README-slackware-current-kernel-update.md` in `slackware-notes`.
 
 Guides are in the `slackware-notes` repo:
 `README-alien-slackbuilds-scripts.md`, `README-sbo-custom-slackbuilds.md`.
