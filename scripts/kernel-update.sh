@@ -9,14 +9,17 @@
 # Follows slackware-notes: docs/README-slackware-current-kernel-update.md
 # (kernel-generic stays blacklisted in slackpkg; installpkg, never upgradepkg).
 #
-# Usage: kernel-update.sh [-c]
+# Usage: kernel-update.sh [-c | -d [VERSION...]]
 #   (no option)  check the mirror, download, verify (md5 + gpg) and install a
 #                newer kernel-generic after confirmation, then print GRUB entries
 #   -c           check only: list installed kernels, compare with the mirror,
-#                print GRUB entries (no root needed, nothing is changed)
-#
-# Planned: -d to removepkg kernels older than the "previous" one. For now the
-# script only prints the removepkg commands.
+#                print GRUB entries, show dmesg errors/warnings (nothing changed)
+#   -d           remove kernels older than the newest two, after confirmation.
+#                Only when more than two are installed, the newest one is
+#                running and its symlinks/initrd are fine. Slackware 15.0
+#                kernels (vmlinuz-generic-VER) are never removed by the script.
+#                Asks: remove all, choose one by one, or nothing. With VERSIONs,
+#                only those are offered (e.g. -d 7.2.11 7.2.12 keeps 7.2.13).
 #
 # Environment overrides:
 #   MIRROR   slackware64-current mirror (default below)
@@ -34,27 +37,34 @@ PKGNAME=kernel-generic
 
 usage() {
     cat <<EOF2
-Usage: $0 [-c]
+Usage: $0 [-c | -d [VERSION...]]
   (no option)  download, verify and install a newer $PKGNAME from the mirror
                (asks before downloading and before installpkg), then print
                recommended GRUB entries
   -c           check only: list installed kernels, compare with the mirror,
-               print recommended GRUB entries (no root needed)
+               print recommended GRUB entries, show dmesg errors/warnings
+  -d           remove kernels older than the newest two (asks first; only if
+               more than two are installed and the newest one is running);
+               asks: all, one by one, or nothing. With VERSIONs, only those
+               versions are offered
 Mirror: $MIRROR
 EOF2
     exit "${1:-0}"
 }
 
 CHECK_ONLY=0
-while getopts "ch" opt; do
+DELETE=0
+while getopts "cdh" opt; do
     case $opt in
         c) CHECK_ONLY=1 ;;
+        d) DELETE=1 ;;
         h) usage 0 ;;
         *) usage 1 ;;
     esac
 done
 shift $((OPTIND - 1))
-[ $# -eq 0 ] || usage 1
+[ $# -eq 0 ] || [ $DELETE -eq 1 ] || usage 1
+[ $CHECK_ONLY -eq 1 ] && [ $DELETE -eq 1 ] && usage 1
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 warn() { echo "WARNING: $*" >&2; }
@@ -216,11 +226,119 @@ print_removable() {
     count=$(wc -l <<< "$KERNELS")
     [ "$count" -gt 2 ] || return 0
     echo
-    echo "More than two kernels installed. Once the newest one boots fine, the"
-    echo "older ones can be removed (as root, then drop their GRUB entries):"
+    echo "More than two kernels installed. Once the newest one boots fine, remove"
+    echo "the older ones with: su -c '$0 -d'  (then drop their GRUB entries)"
     head -n $((count - 2)) <<< "$KERNELS" | while read -r ver pkg; do
-        echo "  removepkg $pkg"
+        case $(kernel_file "$ver") in
+            vmlinuz-generic-*) echo "  $pkg (Slackware 15.0 kernel, -d skips it)" ;;
+            *) echo "  $pkg" ;;
+        esac
     done
+}
+
+# Shows kernel errors and warnings; dmesg may need root (kernel.dmesg_restrict)
+check_dmesg() {
+    local out
+    echo
+    echo "dmesg errors and warnings (running $(uname -r)):"
+    if ! out=$(dmesg --level=err,warn 2>/dev/null); then
+        if [ "$(id -u)" -eq 0 ]; then
+            warn "dmesg failed"; return 1
+        elif command -v sudo >/dev/null 2>&1 &&
+             out=$(sudo dmesg --level=err,warn); then
+            :
+        else
+            echo "(su -c: root password)"
+            out=$(su -c 'dmesg --level=err,warn') || { warn "dmesg failed"; return 1; }
+        fi
+    fi
+    if [ -n "$out" ]; then
+        printf '%s\n' "$out"
+        echo "($(wc -l <<< "$out") line(s))"
+    else
+        echo "  none"
+    fi
+}
+
+# Removes kernels older than the newest two, with safety checks
+delete_old() {
+    local running count prev ver pkg k i list="" n=0
+    [ "$(id -u)" -eq 0 ] || die "removing needs root: su -c '$0 -d'"
+    running=$(uname -r)
+    count=$(wc -l <<< "$KERNELS")
+    if [ "$count" -le 2 ]; then
+        echo "Only $count kernel(s) installed, nothing to remove."
+        return 0
+    fi
+    if [ "$running" != "$NEWEST" ]; then
+        echo "Running $running, not the newest installed $NEWEST."
+        echo "Boot the newest kernel and test it first. Nothing removed."
+        return 1
+    fi
+    echo "Checking the newest kernel ($NEWEST):"
+    if ! check_latest "$NEWEST"; then
+        echo "Fix the newest kernel first. Nothing removed."
+        return 1
+    fi
+    echo "OK: symlinks, initrd and modules match $NEWEST"
+    prev=$(tail -n2 <<< "$KERNELS" | head -n1 | cut -d' ' -f1)
+    echo
+    echo "Keeping: $NEWEST (newest, running) and $prev (previous)"
+    while read -r ver pkg; do
+        # paranoia: never the running, newest or previous kernel
+        if [ "$ver" = "$running" ] || [ "$ver" = "$NEWEST" ] || [ "$ver" = "$prev" ]; then
+            continue
+        fi
+        k=$(kernel_file "$ver") || k=""
+        case $k in
+            vmlinuz-generic-*)
+                echo "Skipping $pkg (Slackware 15.0 kernel; remove it by hand"
+                echo "  with its kernel-huge/kernel-modules packages, see the kernel doc)"
+                continue ;;
+        esac
+        if [ $# -gt 0 ] && ! printf '%s\n' "$@" | grep -qxF "$ver"; then
+            echo "Keeping $ver (not given on the command line)"
+            continue
+        fi
+        i=$(initrd_file "$ver") || i=""
+        list="$list$ver $pkg ${i:--}
+"
+        n=$((n + 1))
+    done < <(head -n $((count - 2)) <<< "$KERNELS")
+    # versions given but not removable (kept, 15.0, or not installed)
+    for ver in "$@"; do
+        printf '%s' "$list" | awk -v v="$ver" '$1 == v { f = 1 } END { exit !f }' ||
+            warn "$ver is not removable (not installed, newest, previous or 15.0 kernel)"
+    done
+    if [ $n -eq 0 ]; then
+        echo "Nothing to remove."
+        return 0
+    fi
+    echo "Can be removed ($n):"
+    while read -r ver pkg i; do
+        [ -n "$ver" ] || continue
+        echo "  $pkg  (initrd: $i)"
+    done <<< "$list"
+    local a mode
+    read -r -p "Remove all (a), choose one by one (o), or nothing (N)? " a < /dev/tty
+    case $a in
+        a|A) mode=all ;;
+        o|O) mode=one ;;
+        *) echo "Nothing removed."; return 0 ;;
+    esac
+    while read -r ver pkg i; do
+        [ -n "$ver" ] || continue
+        if [ $mode = one ]; then
+            ask "Remove $pkg (initrd: $i)?" || { echo "Keeping $ver"; continue; }
+        fi
+        removepkg "$pkg" || { warn "removepkg $pkg failed"; continue; }
+        # initrds are not in the package; delete it once its kernel is gone
+        if [ "$i" != "-" ] && [ -f "$BOOT/$i" ] && [ ! -e "$BOOT/vmlinuz-$ver" ] &&
+           [ "$(readlink "$BOOT/initrd.gz")" != "$i" ]; then
+            rm -f -- "$BOOT/$i" && echo "Removed $BOOT/$i"
+        fi
+    done <<< "$list"
+    return 0
 }
 
 # --- main ---
@@ -258,6 +376,16 @@ done
 list_kernels
 echo
 
+if [ $DELETE -eq 1 ]; then
+    delete_old "$@" || exit 1
+    KERNELS=$(installed_kernels)
+    NEWEST=$(tail -n1 <<< "$KERNELS" | cut -d' ' -f1)
+    echo
+    list_kernels
+    print_grub
+    exit 0
+fi
+
 AVAIL_VER=""
 if mirror_newest; then
     echo "Newest on mirror: $AVAIL_PKG"
@@ -278,6 +406,7 @@ if [ $CHECK_ONLY -eq 1 ] || [ -z "$AVAIL_VER" ] || ! newer "$AVAIL_VER" "$NEWEST
     check_latest "$NEWEST" && echo "OK: symlinks, initrd and modules match $NEWEST"
     print_grub
     print_removable
+    [ $CHECK_ONLY -eq 1 ] && check_dmesg
     exit 0
 fi
 

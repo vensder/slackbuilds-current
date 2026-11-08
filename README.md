@@ -40,7 +40,12 @@ su -c 'scripts/build-slackbuild.sh -t vensder -i calf'
   (newest via `/boot/vmlinuz` + `/boot/initrd.gz`, older ones versioned).
   Without `-c` (as root: `su -c 'scripts/kernel-update.sh'`) it downloads,
   checks md5 + gpg and `installpkg`s the newer kernel after confirmation.
-  Old kernels are not removed; it prints the `removepkg` commands.
+  `-c` also shows `dmesg --level=err,warn` (via sudo or su -c if needed).
+  `su -c 'scripts/kernel-update.sh -d'` removes kernels older than the newest
+  two after confirmation: only with more than two installed and the newest one
+  running; Slackware 15.0 kernels (`vmlinuz-generic-VER`) are left alone.
+  It asks: remove all, one by one, or nothing; `-d 7.2.11 7.2.12` offers only
+  those versions.
   Steps: `README-slackware-current-kernel-update.md` in `slackware-notes`.
 
 Guides are in the `slackware-notes` repo:
