@@ -1,0 +1,296 @@
+#!/bin/sh
+# Copyright 2026  Dmitrii (vensder)
+# Based on Eric Hameleers' SlackBuild template.
+# All rights reserved.
+#
+#   Permission to use, copy, modify, and distribute this software for
+#   any purpose with or without fee is hereby granted, provided that
+#   the above copyright notice and this permission notice appear in all
+#   copies.
+#
+#   THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+#   WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+#   MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+#   IN NO EVENT SHALL THE AUTHORS AND COPYRIGHT HOLDERS AND THEIR
+#   CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+#   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+#   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+#   USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+#   ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+#   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+#   OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+#   SUCH DAMAGE.
+# -----------------------------------------------------------------------------
+#
+# Slackware SlackBuild script
+# ===========================
+# For:         dexed
+# Descr:       Dexed DX7 FM synthesizer (standalone, LV2, VST3, CLAP)
+# URL:         https://github.com/asb2m10/dexed
+# Build needs: jack2, alsa-lib, freetype, fontconfig, mesa, X11 libs
+# Needs:       jack2
+# Changelog:
+# 1.1.0-1:     10/nov/2026
+#              * Initial build from the v1.1.0 GitHub tag. The tag tarball
+#                has no git submodules, so JUCE, clap-juce-extensions (with
+#                clap and clap-helpers), MTS-ESP, surgesynthteam_tuningui and
+#                tuning-library are downloaded as tarballs of the commits
+#                pinned by that tag.
+#              * Also build the LV2 plugin (upstream builds only Standalone,
+#                VST3 and CLAP on Linux; JUCE 8 has LV2 support).
+#              * Enable JACK in the standalone (upstream check never finds it).
+#              * Build without LTO (GCC 16); set -o pipefail.
+#
+# Run 'sh dexed.SlackBuild' to build a Slackware package.
+# The package (.t?z) and .txt file as well as build logs are created in /tmp .
+# Install the package using 'installpkg' or 'upgradepkg --install-new'.
+#
+# -----------------------------------------------------------------------------
+
+PRGNAM=dexed
+VERSION=${VERSION:-1.1.0}
+BUILD=${BUILD:-1}
+NUMJOBS=${NUMJOBS:-" -j$(nproc) "}
+TAG=${TAG:-vensder}
+
+DOCS="LICENSE README.md doc/*.md doc/*.txt doc/*.pdf"
+
+# Submodule commits pinned by the v$VERSION tag.
+# On a version bump, get them with: git ls-tree -r v<new> | grep ^160000
+# (clap and clap-helpers: the same inside clap-juce-extensions at its commit).
+JUCE_COMMIT=${JUCE_COMMIT:-c352e2489000ffeb9e397051377d75eef2efe641}     # JUCE 8.0.11
+CJE_COMMIT=${CJE_COMMIT:-16e9d4ca7b1e86c76e04584b2c08e85a764bcda8}       # clap-juce-extensions
+CLAP_COMMIT=${CLAP_COMMIT:-29ffcc273be7c7c651f6c9953b99e69700e2387a}     # clap 1.2.7
+CLAPH_COMMIT=${CLAPH_COMMIT:-a61bcdf0ecc2c8db1e80bfe8bf9cb7e8d9fd2bbc}   # clap-helpers
+MTSESP_COMMIT=${MTSESP_COMMIT:-803c3aab3d43dfaea430a1084ab31b606f5cd72c} # MTS-ESP
+TUI_COMMIT=${TUI_COMMIT:-2446bfced29be962759bb2abcb2b623763467154}       # surgesynthteam_tuningui
+TUNLIB_COMMIT=${TUNLIB_COMMIT:-6fa04a024dc9174eebba3b5703f2bbc5fa23fb9e} # tuning-library
+
+# Where do we look for sources?
+SRCDIR=$(cd $(dirname $0); pwd)
+
+# Place to build (TMP) package (PKG) and output (OUTPUT) the program:
+TMP=${TMP:-/tmp/build}
+PKG=$TMP/package-$PRGNAM
+OUTPUT=${OUTPUT:-/tmp}
+
+# The tag tarball unpacks to dexed-$VERSION/ . The submodule tarballs
+# unpack to <repo>-<commit>/ :
+SOURCE[0]="$SRCDIR/${PRGNAM}-${VERSION}.tar.gz"
+SRCURL[0]="https://github.com/asb2m10/dexed/archive/refs/tags/v${VERSION}.tar.gz"
+SOURCE[1]="$SRCDIR/JUCE-${JUCE_COMMIT:0:10}.tar.gz"
+SRCURL[1]="https://github.com/juce-framework/JUCE/archive/${JUCE_COMMIT}.tar.gz"
+SOURCE[2]="$SRCDIR/clap-juce-extensions-${CJE_COMMIT:0:10}.tar.gz"
+SRCURL[2]="https://github.com/free-audio/clap-juce-extensions/archive/${CJE_COMMIT}.tar.gz"
+SOURCE[3]="$SRCDIR/clap-${CLAP_COMMIT:0:10}.tar.gz"
+SRCURL[3]="https://github.com/free-audio/clap/archive/${CLAP_COMMIT}.tar.gz"
+SOURCE[4]="$SRCDIR/clap-helpers-${CLAPH_COMMIT:0:10}.tar.gz"
+SRCURL[4]="https://github.com/free-audio/clap-helpers/archive/${CLAPH_COMMIT}.tar.gz"
+SOURCE[5]="$SRCDIR/MTS-ESP-${MTSESP_COMMIT:0:10}.tar.gz"
+SRCURL[5]="https://github.com/ODDSound/MTS-ESP/archive/${MTSESP_COMMIT}.tar.gz"
+SOURCE[6]="$SRCDIR/surgesynthteam_tuningui-${TUI_COMMIT:0:10}.tar.gz"
+SRCURL[6]="https://github.com/asb2m10/surgesynthteam_tuningui/archive/${TUI_COMMIT}.tar.gz"
+SOURCE[7]="$SRCDIR/tuning-library-${TUNLIB_COMMIT:0:10}.tar.gz"
+SRCURL[7]="https://github.com/surge-synthesizer/tuning-library/archive/${TUNLIB_COMMIT}.tar.gz"
+
+##
+## --- with a little luck, you won't have to edit below this point --- ##
+##
+# Automatically determine the architecture we're building on:
+if [ -z "$ARCH" ]; then
+  case "$(uname -m)" in
+    i?86) ARCH=i586 ;;
+    arm*) readelf /usr/bin/file -A | egrep -q "Tag_CPU.*[4,5]" && ARCH=arm || ARCH=armv7hl ;;
+    # Unless $ARCH is already set, use uname -m for all other archs:
+    *) ARCH=$(uname -m) ;;
+  esac
+  export ARCH
+fi
+# Set CFLAGS/CXXFLAGS and LIBDIRSUFFIX:
+case "$ARCH" in
+  i?86)      SLKCFLAGS="-O2 -march=${ARCH} -mtune=i686"
+             SLKLDFLAGS=""; LIBDIRSUFFIX=""
+             ;;
+  x86_64)    SLKCFLAGS="-O2 -fPIC"
+             SLKLDFLAGS="-L/usr/lib64"; LIBDIRSUFFIX="64"
+             ;;
+  armv7hl)   SLKCFLAGS="-O2 -march=armv7-a -mfpu=vfpv3-d16"
+             SLKLDFLAGS=""; LIBDIRSUFFIX=""
+             ;;
+  *)         SLKCFLAGS=${SLKCFLAGS:-"-O2"}
+             SLKLDFLAGS=${SLKLDFLAGS:-""}; LIBDIRSUFFIX=${LIBDIRSUFFIX:-""}
+             ;;
+esac
+
+case "$ARCH" in
+    arm*)    TARGET=$ARCH-slackware-linux-gnueabi ;;
+    *)       TARGET=$ARCH-slackware-linux ;;
+esac
+
+# Exit the script on errors:
+set -e
+# Fail when cmake fails, not only when tee does:
+set -o pipefail
+trap 'echo "$0 FAILED at line ${LINENO}" | tee $OUTPUT/error-${PRGNAM}.log' ERR
+# Catch unitialized variables:
+set -u
+P1=${1:-1}
+
+# Save old umask and set to 0022:
+_UMASK_=$(umask)
+umask 0022
+
+# Create working directories:
+mkdir -p $OUTPUT          # place for the package to be saved
+mkdir -p $TMP/tmp-$PRGNAM # location to build the source
+mkdir -p $PKG             # place for the package to be built
+rm -rf $PKG/*             # always erase old package's contents
+rm -rf $TMP/tmp-$PRGNAM/* # remove the remnants of previous build
+rm -rf $OUTPUT/{configure,make,install,error,makepkg,patch}-$PRGNAM.log
+                          # remove old log files
+
+# Source file availability:
+for (( i = 0; i < ${#SOURCE[*]}; i++ )) ; do
+  if ! [ -f ${SOURCE[$i]} ]; then
+    echo "Source '$(basename ${SOURCE[$i]})' not available yet..."
+    # Check if the $SRCDIR is writable at all - if not, download to $OUTPUT
+    [ -w "$SRCDIR" ] || SOURCE[$i]="$OUTPUT/$(basename ${SOURCE[$i]})"
+    if [ -f ${SOURCE[$i]} ]; then echo "Ah, found it!"; continue; fi
+    if ! [ "x${SRCURL[$i]}" == "x" ]; then
+      echo "Will download file to $(dirname $SOURCE[$i])"
+      wget --no-check-certificate -nv -T 20 -O "${SOURCE[$i]}" "${SRCURL[$i]}" || true
+      if [ $? -ne 0 -o ! -s "${SOURCE[$i]}" ]; then
+        echo "Fail to download '$(basename ${SOURCE[$i]})'. Aborting the build."
+        mv -f "${SOURCE[$i]}" "${SOURCE[$i]}".FAIL
+        exit 1
+      fi
+    fi
+    if [ ! -f "${SOURCE[$i]}" -o ! -s "${SOURCE[$i]}" ]; then
+      echo "File '$(basename ${SOURCE[$i]})' not available. Aborting the build."
+      exit 1
+    fi
+  fi
+done
+
+if [ "$P1" == "--download" ]; then
+  echo "Download complete."
+  exit 0
+fi
+
+# --- PACKAGE BUILDING ---
+
+echo "++"
+echo "|| $PRGNAM-$VERSION"
+echo "++"
+
+cd $TMP/tmp-$PRGNAM
+echo "Extracting the source archive(s) for $PRGNAM..."
+tar -xf ${SOURCE[0]}
+cd ${PRGNAM}-${VERSION}
+
+# Put each submodule tarball where git would have checked it out:
+unpack_submodule() {
+  rm -rf "$2"
+  mkdir -p "$2"
+  tar -xf "$1" --strip-components=1 -C "$2"
+}
+unpack_submodule ${SOURCE[1]} libs/JUCE
+unpack_submodule ${SOURCE[2]} libs/clap-juce-extensions
+unpack_submodule ${SOURCE[3]} libs/clap-juce-extensions/clap-libs/clap
+unpack_submodule ${SOURCE[4]} libs/clap-juce-extensions/clap-libs/clap-helpers
+unpack_submodule ${SOURCE[5]} libs/MTS-ESP
+unpack_submodule ${SOURCE[6]} libs/surgesynthteam_tuningui
+unpack_submodule ${SOURCE[7]} libs/tuning-library
+
+chown -R root:root .
+chmod -R u+w,go+r-w,a+rX-st .
+
+# JUCE's -flto breaks plugin links with GCC 16 (seen with vaporizer2 and
+# helm-synth), so build without it:
+sed -i source/CMakeLists.txt -e '/juce::juce_recommended_lto_flags/d'
+
+# Also build the LV2 plugin, and do not copy the plugins into root's
+# ~/.vst3, ~/.lv2 and ~/.clap after the build:
+sed -i source/CMakeLists.txt \
+  -e 's/^set(DEXED_JUCE_FORMATS Standalone)/set(DEXED_JUCE_FORMATS Standalone LV2)/' \
+  -e 's|^\( *\)COPY_PLUGIN_AFTER_BUILD TRUE|\1COPY_PLUGIN_AFTER_BUILD FALSE\n\1LV2URI "https://github.com/asb2m10/dexed"|'
+
+# find_package(Jack) has no Find module here, so JACK is always off.
+# Turn it on (JUCE loads libjack.so.0 at runtime, jack2 headers needed):
+sed -i source/CMakeLists.txt \
+  -e 's/JUCE_JACK=\$<IF:\$<BOOL:\${Jack_FOUND}>,1,0>/JUCE_JACK=1/'
+
+echo Building ...
+
+# There are no install rules; the plugins and the standalone are copied
+# from the artefacts folder below.
+cmake -S $(pwd) -B build-${PRGNAM} \
+  -DCMAKE_C_FLAGS:STRING="$SLKCFLAGS" \
+  -DCMAKE_CXX_FLAGS:STRING="$SLKCFLAGS" \
+  -DCMAKE_C_FLAGS_RELEASE:STRING="$SLKCFLAGS" \
+  -DCMAKE_CXX_FLAGS_RELEASE:STRING="$SLKCFLAGS" \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_ID=${VERSION}-${BUILD}${TAG} \
+  2>&1 | tee $OUTPUT/configure-${PRGNAM}.log
+cmake --build build-${PRGNAM} $NUMJOBS \
+  --target Dexed_Standalone Dexed_LV2 Dexed_VST3 Dexed_CLAP \
+  2>&1 | tee $OUTPUT/make-${PRGNAM}.log
+
+ART=build-${PRGNAM}/source/Dexed_artefacts/Release
+
+# Plugins into /usr/lib64/{lv2,vst3,clap}. Carla-Rack in Reaper only scans
+# ~/.lv2 and /usr/lib/lv2, so link it there with:
+#   ln -s /usr/lib64/lv2/Dexed.lv2 ~/.lv2/
+mkdir -p $PKG/usr/lib${LIBDIRSUFFIX}/{lv2,vst3,clap}
+cp -a $ART/LV2/Dexed.lv2 $PKG/usr/lib${LIBDIRSUFFIX}/lv2/
+cp -a $ART/VST3/Dexed.vst3 $PKG/usr/lib${LIBDIRSUFFIX}/vst3/
+install -m0755 $ART/CLAP/Dexed.clap $PKG/usr/lib${LIBDIRSUFFIX}/clap/
+
+mkdir -p $PKG/usr/bin
+install -m0755 $ART/Standalone/Dexed $PKG/usr/bin/Dexed
+
+# Desktop file and icon for the standalone:
+mkdir -p $PKG/usr/share/applications $PKG/usr/share/icons/hicolor/512x512/apps
+install -m0644 $SRCDIR/${PRGNAM}.desktop $PKG/usr/share/applications/
+install -m0644 assets/ui/dexedIcon.png \
+  $PKG/usr/share/icons/hicolor/512x512/apps/${PRGNAM}.png
+
+# Add this to the doinst.sh:
+mkdir -p $PKG/install
+cat <<EOINS >> $PKG/install/doinst.sh
+# Update the desktop database:
+if [ -x usr/bin/update-desktop-database ]; then
+  chroot . /usr/bin/update-desktop-database usr/share/applications > /dev/null 2>&1
+fi
+
+EOINS
+
+# Add documentation:
+mkdir -p $PKG/usr/doc/$PRGNAM-$VERSION
+cp -a $DOCS $PKG/usr/doc/$PRGNAM-$VERSION || true
+cat $SRCDIR/slack-required > $PKG/usr/doc/$PRGNAM-$VERSION/slack-required
+cat $SRCDIR/$(basename $0) > $PKG/usr/doc/$PRGNAM-$VERSION/$PRGNAM.SlackBuild
+chown -R root:root $PKG/usr/doc/$PRGNAM-$VERSION
+find $PKG/usr/doc -type d -exec chmod 755 {} \;
+find $PKG/usr/doc -type f -exec chmod 644 {} \;
+
+# Strip binaries:
+find $PKG/usr/bin $PKG/usr/lib${LIBDIRSUFFIX} -type f | xargs file | grep -e "executable" -e "shared object" | grep ELF \
+  | cut -f 1 -d : | xargs strip --strip-unneeded 2> /dev/null || true
+
+# Add a package description:
+mkdir -p $PKG/install
+cat $SRCDIR/slack-desc > $PKG/install/slack-desc
+cat $SRCDIR/slack-required > $PKG/install/slack-required
+
+# Build the package:
+cd $PKG
+makepkg --linkadd y --chown n $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz} 2>&1 | tee $OUTPUT/makepkg-${PRGNAM}.log
+cd $OUTPUT
+md5sum ${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz} > ${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz}.md5
+cd -
+cat $PKG/install/slack-desc | grep "^${PRGNAM}" > $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.txt
+cat $PKG/install/slack-required > $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.dep
+
+# Restore the original umask:
+umask ${_UMASK_}

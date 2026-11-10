@@ -70,6 +70,7 @@ SlackBuild, except git snapshots (tarball only in Alien's build dir).
 | calf | vensder | 0.90.9 (Alien: autotools build) | CMake build from GitHub tag tarball; seds for PKGDOCDIR (`config.h.cmake.in`) and gtk.rc `pixmap_path` (`gui/CMakeLists.txt`); `alien/calf` kept unchanged |
 | vaporizer2 | vensder | 3.5.0 (new) | GitHub tag tarball + 6 submodule tarballs at the commits pinned by the tag (`*_COMMIT` vars); LV2/VST3/CLAP in `/usr/lib64/{lv2,vst3,clap}`, data in `/usr/share/Vaporizer2`; `BUILD_AVX=OFF` for non-AVX CPUs. Carla-Rack in Reaper: `ln -s /usr/lib64/lv2/VASTvaporizer2.lv2 ~/.lv2/` |
 | helm-synth | vensder | 0.10.0 (Alien: 0.9.0) | JUCE CMake build of the bepzi/helm fork, from tag `v0.10.0` in vensder/helm; no LTO (GCC 16 loses `createPluginFilter()` in the LV2 link); standalone as `/usr/bin/helm-synth`, LV2/VST3 in `/usr/lib64/{lv2,vst3}`, presets in `/usr/share/helm/patches`; `alien/helm-synth` kept unchanged. Carla-Rack in Reaper: `ln -s /usr/lib64/lv2/helm.lv2 ~/.lv2/` |
+| dexed | vensder | 1.1.0 (new) | GitHub tag tarball + 7 submodule tarballs at the commits pinned by the tag (`*_COMMIT` vars); seds in `source/CMakeLists.txt`: no LTO, add LV2 format, no copy into `~/.vst3`, JACK on (upstream `find_package(Jack)` never finds it); standalone `/usr/bin/Dexed`, LV2/VST3/CLAP in `/usr/lib64/{lv2,vst3,clap}`. Carla-Rack in Reaper: `ln -s /usr/lib64/lv2/Dexed.lv2 ~/.lv2/` |
 
 ## Packages built as-is
 

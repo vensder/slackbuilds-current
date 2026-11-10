@@ -1,0 +1,19 @@
+# HOW TO EDIT THIS FILE:
+# The "handy ruler" below makes it easier to edit a package description.  Line
+# up the first '|' above the ':' following the base package name, and the '|'
+# on the right side marks the last column you can put a character in.  You must
+# make exactly 11 lines for the formatting to be correct.  It's also
+# customary to leave one space after the ':' except on otherwise blank lines.
+
+     |-----handy-ruler------------------------------------------------------|
+dexed: dexed (DX7 FM synthesizer)
+dexed:
+dexed: Dexed is a multi platform, multi format plugin synth that is closely
+dexed: modeled on the Yamaha DX7. It can load DX7 sysex cartridges and can
+dexed: be used as a patch editor for a real DX7.
+dexed:
+dexed: Built as a standalone program and as LV2, VST3 and CLAP plugins.
+dexed:
+dexed:
+dexed: dexed home: https://asb2m10.github.io/dexed/
+dexed:

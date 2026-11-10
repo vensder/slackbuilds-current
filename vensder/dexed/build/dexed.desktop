@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Dexed
+GenericName=Synthesizer
+Comment=DX7 FM synthesizer
+Exec=Dexed
+Icon=dexed
+Terminal=false
+Categories=X-DAW;AudioVideo;Audio;Midi;
