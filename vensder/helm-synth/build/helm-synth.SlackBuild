@@ -1,0 +1,271 @@
+#!/bin/sh
+# Copyright 2026  Dmitrii (vensder)
+# Based on Eric Hameleers' SlackBuild template.
+# All rights reserved.
+#
+#   Permission to use, copy, modify, and distribute this software for
+#   any purpose with or without fee is hereby granted, provided that
+#   the above copyright notice and this permission notice appear in all
+#   copies.
+#
+#   THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+#   WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+#   MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+#   IN NO EVENT SHALL THE AUTHORS AND COPYRIGHT HOLDERS AND THEIR
+#   CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+#   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+#   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+#   USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+#   ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+#   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+#   OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+#   SUCH DAMAGE.
+# -----------------------------------------------------------------------------
+#
+# Slackware SlackBuild script
+# ===========================
+# For:         helm-synth
+# Descr:       Helm polyphonic synthesizer (standalone, LV2 and VST3)
+# URL:         https://github.com/vensder/helm (fork of bepzi/helm, which
+#              keeps Matt Tytel's archived Helm building with JUCE CMake)
+# Build needs: alsa-lib, jack2, mesa, freetype, X11 libs (JUCE and the LV2
+#              headers are bundled)
+# Needs:       jack2
+# Changelog:
+# 0.10.0-1:    10/nov/2026
+#              * Initial build from the bepzi/helm fork (mirrored as
+#                vensder/helm), tag v0.10.0 there (bepzi's last commit
+#                96b5864, Apr 2021). Replaces alien/helm-synth
+#                0.9.0 (same package name, so upgradepkg swaps them).
+#                Built without LTO (GCC 16 drops createPluginFilter() from
+#                the LV2 link); set -o pipefail so a failed build stops the
+#                script.
+#
+# Run 'sh helm-synth.SlackBuild' to build a Slackware package.
+# The package (.t?z) and .txt file as well as build logs are created in /tmp .
+# Install the package using 'installpkg' or 'upgradepkg --install-new'.
+#
+# -----------------------------------------------------------------------------
+
+PRGNAM=helm-synth
+SRCNAM=helm
+# bepzi made no releases; v0.10.0 is a tag in vensder/helm, named after
+# the version in CMakeLists.txt (which is what the plugin reports).
+VERSION=${VERSION:-0.10.0}
+BUILD=${BUILD:-1}
+NUMJOBS=${NUMJOBS:-" -j$(nproc) "}
+TAG=${TAG:-vensder}
+
+DOCS="COPYING README.md changelog docs/helm_manual.pdf"
+
+# Where do we look for sources?
+SRCDIR=$(cd $(dirname $0); pwd)
+
+# Place to build (TMP) package (PKG) and output (OUTPUT) the program:
+TMP=${TMP:-/tmp/build}
+PKG=$TMP/package-$PRGNAM
+OUTPUT=${OUTPUT:-/tmp}
+
+# The tag tarball unpacks to helm-$VERSION/ :
+SOURCE[0]="$SRCDIR/${SRCNAM}-${VERSION}.tar.gz"
+SRCURL[0]="https://github.com/vensder/helm/archive/refs/tags/v${VERSION}.tar.gz"
+
+##
+## --- with a little luck, you won't have to edit below this point --- ##
+##
+# Automatically determine the architecture we're building on:
+if [ -z "$ARCH" ]; then
+  case "$(uname -m)" in
+    i?86) ARCH=i586 ;;
+    arm*) readelf /usr/bin/file -A | egrep -q "Tag_CPU.*[4,5]" && ARCH=arm || ARCH=armv7hl ;;
+    # Unless $ARCH is already set, use uname -m for all other archs:
+    *) ARCH=$(uname -m) ;;
+  esac
+  export ARCH
+fi
+# Set CFLAGS/CXXFLAGS and LIBDIRSUFFIX:
+case "$ARCH" in
+  i?86)      SLKCFLAGS="-O2 -march=${ARCH} -mtune=i686"
+             SLKLDFLAGS=""; LIBDIRSUFFIX=""
+             ;;
+  x86_64)    SLKCFLAGS="-O2 -fPIC"
+             SLKLDFLAGS="-L/usr/lib64"; LIBDIRSUFFIX="64"
+             ;;
+  armv7hl)   SLKCFLAGS="-O2 -march=armv7-a -mfpu=vfpv3-d16"
+             SLKLDFLAGS=""; LIBDIRSUFFIX=""
+             ;;
+  *)         SLKCFLAGS=${SLKCFLAGS:-"-O2"}
+             SLKLDFLAGS=${SLKLDFLAGS:-""}; LIBDIRSUFFIX=${LIBDIRSUFFIX:-""}
+             ;;
+esac
+
+case "$ARCH" in
+    arm*)    TARGET=$ARCH-slackware-linux-gnueabi ;;
+    *)       TARGET=$ARCH-slackware-linux ;;
+esac
+
+# Exit the script on errors:
+set -e
+# Fail when cmake fails, not only when tee does:
+set -o pipefail
+trap 'echo "$0 FAILED at line ${LINENO}" | tee $OUTPUT/error-${PRGNAM}.log' ERR
+# Catch unitialized variables:
+set -u
+P1=${1:-1}
+
+# Save old umask and set to 0022:
+_UMASK_=$(umask)
+umask 0022
+
+# Create working directories:
+mkdir -p $OUTPUT          # place for the package to be saved
+mkdir -p $TMP/tmp-$PRGNAM # location to build the source
+mkdir -p $PKG             # place for the package to be built
+rm -rf $PKG/*             # always erase old package's contents
+rm -rf $TMP/tmp-$PRGNAM/* # remove the remnants of previous build
+rm -rf $OUTPUT/{configure,make,install,error,makepkg,patch}-$PRGNAM.log
+                          # remove old log files
+
+# Source file availability:
+for (( i = 0; i < ${#SOURCE[*]}; i++ )) ; do
+  if ! [ -f ${SOURCE[$i]} ]; then
+    echo "Source '$(basename ${SOURCE[$i]})' not available yet..."
+    # Check if the $SRCDIR is writable at all - if not, download to $OUTPUT
+    [ -w "$SRCDIR" ] || SOURCE[$i]="$OUTPUT/$(basename ${SOURCE[$i]})"
+    if [ -f ${SOURCE[$i]} ]; then echo "Ah, found it!"; continue; fi
+    if ! [ "x${SRCURL[$i]}" == "x" ]; then
+      echo "Will download file to $(dirname $SOURCE[$i])"
+      wget --no-check-certificate -nv -T 20 -O "${SOURCE[$i]}" "${SRCURL[$i]}" || true
+      if [ $? -ne 0 -o ! -s "${SOURCE[$i]}" ]; then
+        echo "Fail to download '$(basename ${SOURCE[$i]})'. Aborting the build."
+        mv -f "${SOURCE[$i]}" "${SOURCE[$i]}".FAIL
+        exit 1
+      fi
+    fi
+    if [ ! -f "${SOURCE[$i]}" -o ! -s "${SOURCE[$i]}" ]; then
+      echo "File '$(basename ${SOURCE[$i]})' not available. Aborting the build."
+      exit 1
+    fi
+  fi
+done
+
+if [ "$P1" == "--download" ]; then
+  echo "Download complete."
+  exit 0
+fi
+
+# --- PACKAGE BUILDING ---
+echo "++"
+echo "|| $PRGNAM-$VERSION"
+echo "++"
+
+cd $TMP/tmp-$PRGNAM
+echo "Extracting the source archive(s) for $PRGNAM..."
+tar -xf ${SOURCE[0]}
+cd ${SRCNAM}-${VERSION}
+
+chown -R root:root .
+chmod -R u+w,go+r-w,a+rX-st .
+
+# JUCE's -flto breaks the LV2 link with GCC 16
+# (undefined reference to createPluginFilter()):
+sed -i CMakeLists.txt -e '/juce::juce_recommended_lto_flags/d'
+
+echo Building ...
+
+# There are no install rules; the plugins and the standalone are copied
+# from the artefacts folders below. Only the LV2, VST3 and standalone
+# targets are built (AU is macOS only).
+cmake -S $(pwd) -B build-${PRGNAM} \
+  -DCMAKE_C_FLAGS:STRING="$SLKCFLAGS" \
+  -DCMAKE_CXX_FLAGS:STRING="$SLKCFLAGS" \
+  -DCMAKE_BUILD_TYPE=Release \
+  2>&1 | tee $OUTPUT/configure-${PRGNAM}.log
+cmake --build build-${PRGNAM} $NUMJOBS \
+  --target HelmPlugin_LV2 HelmPlugin_VST3 HelmStandalone \
+  2>&1 | tee $OUTPUT/make-${PRGNAM}.log
+
+ART=build-${PRGNAM}/HelmPlugin_artefacts/Release
+
+# This JUCE (6.0.7 + LV2) leaves helm.so and the .ttl files flat in LV2/ ;
+# make the bundle. Carla-Rack in Reaper only scans ~/.lv2 and /usr/lib/lv2,
+# so link it there with: ln -s /usr/lib64/lv2/helm.lv2 ~/.lv2/
+mkdir -p $PKG/usr/lib${LIBDIRSUFFIX}/lv2/helm.lv2
+install -m0755 $ART/LV2/helm.so $PKG/usr/lib${LIBDIRSUFFIX}/lv2/helm.lv2/
+install -m0644 $ART/LV2/*.ttl $PKG/usr/lib${LIBDIRSUFFIX}/lv2/helm.lv2/
+
+mkdir -p $PKG/usr/lib${LIBDIRSUFFIX}/vst3
+cp -a $ART/VST3/helm.vst3 $PKG/usr/lib${LIBDIRSUFFIX}/vst3/
+
+# Standalone as helm-synth (like alien/helm-synth; avoids a clash with
+# the Kubernetes "helm" command):
+mkdir -p $PKG/usr/bin
+install -m0755 build-${PRGNAM}/HelmStandalone_artefacts/Release/helm \
+  $PKG/usr/bin/${PRGNAM}
+
+# Factory presets: the plugin looks for /usr/share/helm/patches
+# (LINUX_FACTORY_PATCH_DIRECTORY in src/common/load_save.cpp):
+mkdir -p $PKG/usr/share/helm/patches
+cp -a patches/* $PKG/usr/share/helm/patches/
+
+# Man page, icons and desktop file:
+mkdir -p $PKG/usr/man/man1
+install -m0644 docs/helm.1.gz $PKG/usr/man/man1/${PRGNAM}.1.gz
+for SIZE in 16 32 128 256 512 ; do
+  mkdir -p $PKG/usr/share/icons/hicolor/${SIZE}x${SIZE}/apps
+  install -m0644 images/helm_icon_${SIZE}_1x.png \
+    $PKG/usr/share/icons/hicolor/${SIZE}x${SIZE}/apps/${PRGNAM}.png
+done
+mkdir -p $PKG/usr/share/applications
+sed helm.desktop \
+  -e "s/^Exec=.*/Exec=${PRGNAM}/" \
+  -e "s/^Icon=.*/Icon=${PRGNAM}/" \
+  -e "s/^Categories=\(.*\)/Categories=X-DAW;\1/" \
+  > $PKG/usr/share/applications/${PRGNAM}.desktop
+
+# Add this to the doinst.sh:
+mkdir -p $PKG/install
+cat <<EOINS >> $PKG/install/doinst.sh
+# Update the desktop database:
+if [ -x usr/bin/update-desktop-database ]; then
+  chroot . /usr/bin/update-desktop-database usr/share/applications > /dev/null 2>&1
+fi
+
+# Update hicolor theme cache:
+if [ -d usr/share/icons/hicolor ]; then
+  if [ -x /usr/bin/gtk-update-icon-cache ]; then
+    chroot . /usr/bin/gtk-update-icon-cache -f -t usr/share/icons/hicolor 1> /dev/null 2> /dev/null
+  fi
+fi
+
+EOINS
+
+# Add documentation:
+mkdir -p $PKG/usr/doc/$PRGNAM-$VERSION
+cp -a $DOCS $PKG/usr/doc/$PRGNAM-$VERSION || true
+cat $SRCDIR/slack-required > $PKG/usr/doc/$PRGNAM-$VERSION/slack-required
+cat $SRCDIR/$(basename $0) > $PKG/usr/doc/$PRGNAM-$VERSION/$PRGNAM.SlackBuild
+chown -R root:root $PKG/usr/doc/$PRGNAM-$VERSION
+find $PKG/usr/doc -type d -exec chmod 755 {} \;
+find $PKG/usr/doc -type f -exec chmod 644 {} \;
+
+# Strip binaries (only bin and lib: the preset names have spaces):
+find $PKG/usr/bin $PKG/usr/lib${LIBDIRSUFFIX} -type f | xargs file | grep -e "executable" -e "shared object" | grep ELF \
+  | cut -f 1 -d : | xargs strip --strip-unneeded 2> /dev/null || true
+
+# Add a package description:
+mkdir -p $PKG/install
+cat $SRCDIR/slack-desc > $PKG/install/slack-desc
+cat $SRCDIR/slack-required > $PKG/install/slack-required
+
+# Build the package:
+cd $PKG
+makepkg --linkadd y --chown n $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz} 2>&1 | tee $OUTPUT/makepkg-${PRGNAM}.log
+cd $OUTPUT
+md5sum ${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz} > ${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz}.md5
+cd -
+cat $PKG/install/slack-desc | grep "^${PRGNAM}" > $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.txt
+cat $PKG/install/slack-required > $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.dep
+
+# Restore the original umask:
+umask ${_UMASK_}

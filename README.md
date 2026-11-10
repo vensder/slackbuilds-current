@@ -69,6 +69,7 @@ SlackBuild, except git snapshots (tarball only in Alien's build dir).
 | surge-xt | alien | 1.3.4 | -DSURGE_SKIP_WERROR=ON (bundled LuaJIT/sqlite warnings break -Werror on GCC 16) |
 | calf | vensder | 0.90.9 (Alien: autotools build) | CMake build from GitHub tag tarball; seds for PKGDOCDIR (`config.h.cmake.in`) and gtk.rc `pixmap_path` (`gui/CMakeLists.txt`); `alien/calf` kept unchanged |
 | vaporizer2 | vensder | 3.5.0 (new) | GitHub tag tarball + 6 submodule tarballs at the commits pinned by the tag (`*_COMMIT` vars); LV2/VST3/CLAP in `/usr/lib64/{lv2,vst3,clap}`, data in `/usr/share/Vaporizer2`; `BUILD_AVX=OFF` for non-AVX CPUs. Carla-Rack in Reaper: `ln -s /usr/lib64/lv2/VASTvaporizer2.lv2 ~/.lv2/` |
+| helm-synth | vensder | 0.10.0 (Alien: 0.9.0) | JUCE CMake build of the bepzi/helm fork, from tag `v0.10.0` in vensder/helm; no LTO (GCC 16 loses `createPluginFilter()` in the LV2 link); standalone as `/usr/bin/helm-synth`, LV2/VST3 in `/usr/lib64/{lv2,vst3}`, presets in `/usr/share/helm/patches`; `alien/helm-synth` kept unchanged. Carla-Rack in Reaper: `ln -s /usr/lib64/lv2/helm.lv2 ~/.lv2/` |
 
 ## Packages built as-is
 
@@ -81,7 +82,7 @@ Version = installed version; `-n` = newest upstream, `-V` = given version.
 | drumstick | alien | 2.11.1 | dependency of vmpk |
 | dssi | alien | 1.1.1 | |
 | faad2 | alien | 2.11.4 | dependency of qmmp |
-| helm-synth | alien | 0.9.0 | |
+| helm-synth | alien | 0.9.0 | superseded by vensder/helm-synth |
 | jack-example-tools | alien | 4 | |
 | jack2 | alien | 1.9.22 | |
 | ladspa_sdk | alien | 1.17 | |
