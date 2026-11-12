@@ -32,33 +32,33 @@
 # Needs:       -
 # Changelog:
 # 1.0.0_beta.3-1: 12/nov/2026
-#              * Initial build from the v1.0.0-beta.3 GitHub tag. The tag
-#                tarball has no git submodules, so DPF and its nested pugl
-#                are downloaded as tarballs of the commits pinned by that tag.
+#              * Initial build. VERSION is the git tag as-is (default
+#                v1.0.0-beta.3, or e.g. nightly). The tag is cloned with
+#                its submodules (DPF, pugl, MTS-ESP on nightly) and packed
+#                into SQ8L-<tag>.tar.gz next to this script.
+#              * Package version: the tag without the leading 'v' and with
+#                '-' as '_' (1.0.0_beta.3); a tag not starting with v<digit>
+#                gets its commit date added (nightly_20261111).
 #              * Only the plugin targets are built (no test programs).
 #              * set -o pipefail.
 #
 # Run 'sh sq8l.SlackBuild' to build a Slackware package.
+# Run 'VERSION=nightly sh sq8l.SlackBuild' for the nightly tag. 'nightly'
+# moves: delete SQ8L-nightly.tar.gz to fetch the newest one.
 # The package (.t?z) and .txt file as well as build logs are created in /tmp .
 # Install the package using 'installpkg' or 'upgradepkg --install-new'.
 #
 # -----------------------------------------------------------------------------
 
 PRGNAM=sq8l
-# Package versions cannot contain '-': tag v1.0.0-beta.3 is 1.0.0_beta.3 here.
-VERSION=${VERSION:-1.0.0_beta.3}
-SRCVER=${VERSION//_/-}
+# The git tag to build, as-is. The package version is derived from it below.
+SRCTAG=${VERSION:-v1.0.0-beta.3}
 BUILD=${BUILD:-1}
 NUMJOBS=${NUMJOBS:-" -j$(nproc) "}
 TAG=${TAG:-vensder}
 
 DOCS="LICENSE.md README.md THIRD_PARTY_NOTICES.md docs/*.md"
-
-# Submodule commits pinned by the v$SRCVER tag.
-# On a version bump, get them with: git ls-tree -r v<new> | grep ^160000
-# (pugl: the same inside DPF at its commit, path dgl/src/pugl-upstream).
-DPF_COMMIT=${DPF_COMMIT:-4238e1c7f0351bbe488d79f0899c540543ac7583}   # DISTRHO/DPF
-PUGL_COMMIT=${PUGL_COMMIT:-5e2621d714ddf1cb0f86e852f8ba5dffe04aa3a3} # DISTRHO/pugl
+GITURL=https://github.com/sq8l-revival/SQ8L.git
 
 # Where do we look for sources?
 SRCDIR=$(cd $(dirname $0); pwd)
@@ -68,14 +68,9 @@ TMP=${TMP:-/tmp/build}
 PKG=$TMP/package-$PRGNAM
 OUTPUT=${OUTPUT:-/tmp}
 
-# The tag tarball unpacks to SQ8L-$SRCVER/ . The submodule tarballs
-# unpack to <repo>-<commit>/ :
-SOURCE[0]="$SRCDIR/SQ8L-${SRCVER}.tar.gz"
-SRCURL[0]="https://github.com/sq8l-revival/SQ8L/archive/refs/tags/v${SRCVER}.tar.gz"
-SOURCE[1]="$SRCDIR/DPF-${DPF_COMMIT:0:10}.tar.gz"
-SRCURL[1]="https://github.com/DISTRHO/DPF/archive/${DPF_COMMIT}.tar.gz"
-SOURCE[2]="$SRCDIR/pugl-${PUGL_COMMIT:0:10}.tar.gz"
-SRCURL[2]="https://github.com/DISTRHO/pugl/archive/${PUGL_COMMIT}.tar.gz"
+# Made from a recursive clone of the tag (GitHub tag tarballs lack the
+# submodules); unpacks to SQ8L-$SRCTAG/ :
+SOURCE="$SRCDIR/SQ8L-${SRCTAG}.tar.gz"
 
 ##
 ## --- with a little luck, you won't have to edit below this point --- ##
@@ -134,27 +129,23 @@ rm -rf $OUTPUT/{configure,make,install,error,makepkg,patch}-$PRGNAM.log
                           # remove old log files
 
 # Source file availability:
-for (( i = 0; i < ${#SOURCE[*]}; i++ )) ; do
-  if ! [ -f ${SOURCE[$i]} ]; then
-    echo "Source '$(basename ${SOURCE[$i]})' not available yet..."
-    # Check if the $SRCDIR is writable at all - if not, download to $OUTPUT
-    [ -w "$SRCDIR" ] || SOURCE[$i]="$OUTPUT/$(basename ${SOURCE[$i]})"
-    if [ -f ${SOURCE[$i]} ]; then echo "Ah, found it!"; continue; fi
-    if ! [ "x${SRCURL[$i]}" == "x" ]; then
-      echo "Will download file to $(dirname $SOURCE[$i])"
-      wget --no-check-certificate -nv -T 20 -O "${SOURCE[$i]}" "${SRCURL[$i]}" || true
-      if [ $? -ne 0 -o ! -s "${SOURCE[$i]}" ]; then
-        echo "Fail to download '$(basename ${SOURCE[$i]})'. Aborting the build."
-        mv -f "${SOURCE[$i]}" "${SOURCE[$i]}".FAIL
-        exit 1
-      fi
-    fi
-    if [ ! -f "${SOURCE[$i]}" -o ! -s "${SOURCE[$i]}" ]; then
-      echo "File '$(basename ${SOURCE[$i]})' not available. Aborting the build."
-      exit 1
-    fi
-  fi
-done
+if ! [ -f $SOURCE ]; then
+  echo "Source '$(basename $SOURCE)' not available yet..."
+  # Check if the $SRCDIR is writable at all - if not, save to $OUTPUT
+  [ -w "$SRCDIR" ] || SOURCE="$OUTPUT/$(basename $SOURCE)"
+fi
+if ! [ -f $SOURCE ]; then
+  echo "Cloning tag $SRCTAG with submodules..."
+  rm -rf $TMP/git-$PRGNAM
+  mkdir -p $TMP/git-$PRGNAM
+  git clone --depth 1 --branch $SRCTAG --recursive --shallow-submodules \
+    $GITURL $TMP/git-$PRGNAM/SQ8L-$SRCTAG
+  # Commit date, for the version of tags like 'nightly':
+  git -C $TMP/git-$PRGNAM/SQ8L-$SRCTAG log -1 --format=%cd --date=format:%Y%m%d \
+    > $TMP/git-$PRGNAM/SQ8L-$SRCTAG/.commit-date
+  tar -czf $SOURCE --exclude=.git -C $TMP/git-$PRGNAM SQ8L-$SRCTAG
+  rm -rf $TMP/git-$PRGNAM
+fi
 
 if [ "$P1" == "--download" ]; then
   echo "Download complete."
@@ -163,23 +154,21 @@ fi
 
 # --- PACKAGE BUILDING ---
 
+cd $TMP/tmp-$PRGNAM
+echo "Extracting the source archive for $PRGNAM..."
+tar -xf $SOURCE
+cd SQ8L-${SRCTAG}
+
+# Package version from the tag: v1.0.0-beta.3 -> 1.0.0_beta.3,
+# nightly -> nightly_<commit date>:
+case "$SRCTAG" in
+  v[0-9]*) VERSION=$(echo ${SRCTAG#v} | tr - _) ;;
+  *)       VERSION=$(echo $SRCTAG | tr - _)_$(cat .commit-date) ;;
+esac
+
 echo "++"
 echo "|| $PRGNAM-$VERSION"
 echo "++"
-
-cd $TMP/tmp-$PRGNAM
-echo "Extracting the source archive(s) for $PRGNAM..."
-tar -xf ${SOURCE[0]}
-cd SQ8L-${SRCVER}
-
-# Put each submodule tarball where git would have checked it out:
-unpack_submodule() {
-  rm -rf "$2"
-  mkdir -p "$2"
-  tar -xf "$1" --strip-components=1 -C "$2"
-}
-unpack_submodule ${SOURCE[1]} third_party/DPF
-unpack_submodule ${SOURCE[2]} third_party/DPF/dgl/src/pugl-upstream
 
 chown -R root:root .
 chmod -R u+w,go+r-w,a+rX-st .
