@@ -1,0 +1,244 @@
+#!/bin/sh
+# Copyright 2026  Dmitrii (vensder)
+# Based on Eric Hameleers' SlackBuild template.
+# All rights reserved.
+#
+#   Permission to use, copy, modify, and distribute this software for
+#   any purpose with or without fee is hereby granted, provided that
+#   the above copyright notice and this permission notice appear in all
+#   copies.
+#
+#   THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+#   WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+#   MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+#   IN NO EVENT SHALL THE AUTHORS AND COPYRIGHT HOLDERS AND THEIR
+#   CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+#   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+#   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+#   USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+#   ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+#   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+#   OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+#   SUCH DAMAGE.
+# -----------------------------------------------------------------------------
+#
+# Slackware SlackBuild script
+# ===========================
+# For:         sq8l
+# Descr:       SQ8L Ensoniq SQ-80 synthesizer (LV2, VST2, VST3, CLAP)
+# URL:         https://github.com/sq8l-revival/SQ8L
+# Build needs: cmake, git, X11 libs (libX11, libXext, libXcursor, libXrandr),
+#              mesa, dbus
+# Needs:       -
+# Changelog:
+# 1.0.0_beta.3-1: 12/nov/2026
+#              * Initial build from the v1.0.0-beta.3 GitHub tag. The tag
+#                tarball has no git submodules, so DPF and its nested pugl
+#                are downloaded as tarballs of the commits pinned by that tag.
+#              * Only the plugin targets are built (no test programs).
+#              * set -o pipefail.
+#
+# Run 'sh sq8l.SlackBuild' to build a Slackware package.
+# The package (.t?z) and .txt file as well as build logs are created in /tmp .
+# Install the package using 'installpkg' or 'upgradepkg --install-new'.
+#
+# -----------------------------------------------------------------------------
+
+PRGNAM=sq8l
+# Package versions cannot contain '-': tag v1.0.0-beta.3 is 1.0.0_beta.3 here.
+VERSION=${VERSION:-1.0.0_beta.3}
+SRCVER=${VERSION//_/-}
+BUILD=${BUILD:-1}
+NUMJOBS=${NUMJOBS:-" -j$(nproc) "}
+TAG=${TAG:-vensder}
+
+DOCS="LICENSE.md README.md THIRD_PARTY_NOTICES.md docs/*.md"
+
+# Submodule commits pinned by the v$SRCVER tag.
+# On a version bump, get them with: git ls-tree -r v<new> | grep ^160000
+# (pugl: the same inside DPF at its commit, path dgl/src/pugl-upstream).
+DPF_COMMIT=${DPF_COMMIT:-4238e1c7f0351bbe488d79f0899c540543ac7583}   # DISTRHO/DPF
+PUGL_COMMIT=${PUGL_COMMIT:-5e2621d714ddf1cb0f86e852f8ba5dffe04aa3a3} # DISTRHO/pugl
+
+# Where do we look for sources?
+SRCDIR=$(cd $(dirname $0); pwd)
+
+# Place to build (TMP) package (PKG) and output (OUTPUT) the program:
+TMP=${TMP:-/tmp/build}
+PKG=$TMP/package-$PRGNAM
+OUTPUT=${OUTPUT:-/tmp}
+
+# The tag tarball unpacks to SQ8L-$SRCVER/ . The submodule tarballs
+# unpack to <repo>-<commit>/ :
+SOURCE[0]="$SRCDIR/SQ8L-${SRCVER}.tar.gz"
+SRCURL[0]="https://github.com/sq8l-revival/SQ8L/archive/refs/tags/v${SRCVER}.tar.gz"
+SOURCE[1]="$SRCDIR/DPF-${DPF_COMMIT:0:10}.tar.gz"
+SRCURL[1]="https://github.com/DISTRHO/DPF/archive/${DPF_COMMIT}.tar.gz"
+SOURCE[2]="$SRCDIR/pugl-${PUGL_COMMIT:0:10}.tar.gz"
+SRCURL[2]="https://github.com/DISTRHO/pugl/archive/${PUGL_COMMIT}.tar.gz"
+
+##
+## --- with a little luck, you won't have to edit below this point --- ##
+##
+# Automatically determine the architecture we're building on:
+if [ -z "$ARCH" ]; then
+  case "$(uname -m)" in
+    i?86) ARCH=i586 ;;
+    arm*) readelf /usr/bin/file -A | egrep -q "Tag_CPU.*[4,5]" && ARCH=arm || ARCH=armv7hl ;;
+    # Unless $ARCH is already set, use uname -m for all other archs:
+    *) ARCH=$(uname -m) ;;
+  esac
+  export ARCH
+fi
+# Set CFLAGS/CXXFLAGS and LIBDIRSUFFIX:
+case "$ARCH" in
+  i?86)      SLKCFLAGS="-O2 -march=${ARCH} -mtune=i686"
+             SLKLDFLAGS=""; LIBDIRSUFFIX=""
+             ;;
+  x86_64)    SLKCFLAGS="-O2 -fPIC"
+             SLKLDFLAGS="-L/usr/lib64"; LIBDIRSUFFIX="64"
+             ;;
+  armv7hl)   SLKCFLAGS="-O2 -march=armv7-a -mfpu=vfpv3-d16"
+             SLKLDFLAGS=""; LIBDIRSUFFIX=""
+             ;;
+  *)         SLKCFLAGS=${SLKCFLAGS:-"-O2"}
+             SLKLDFLAGS=${SLKLDFLAGS:-""}; LIBDIRSUFFIX=${LIBDIRSUFFIX:-""}
+             ;;
+esac
+
+case "$ARCH" in
+    arm*)    TARGET=$ARCH-slackware-linux-gnueabi ;;
+    *)       TARGET=$ARCH-slackware-linux ;;
+esac
+
+# Exit the script on errors:
+set -e
+# Fail when cmake fails, not only when tee does:
+set -o pipefail
+trap 'echo "$0 FAILED at line ${LINENO}" | tee $OUTPUT/error-${PRGNAM}.log' ERR
+# Catch unitialized variables:
+set -u
+P1=${1:-1}
+
+# Save old umask and set to 0022:
+_UMASK_=$(umask)
+umask 0022
+
+# Create working directories:
+mkdir -p $OUTPUT          # place for the package to be saved
+mkdir -p $TMP/tmp-$PRGNAM # location to build the source
+mkdir -p $PKG             # place for the package to be built
+rm -rf $PKG/*             # always erase old package's contents
+rm -rf $TMP/tmp-$PRGNAM/* # remove the remnants of previous build
+rm -rf $OUTPUT/{configure,make,install,error,makepkg,patch}-$PRGNAM.log
+                          # remove old log files
+
+# Source file availability:
+for (( i = 0; i < ${#SOURCE[*]}; i++ )) ; do
+  if ! [ -f ${SOURCE[$i]} ]; then
+    echo "Source '$(basename ${SOURCE[$i]})' not available yet..."
+    # Check if the $SRCDIR is writable at all - if not, download to $OUTPUT
+    [ -w "$SRCDIR" ] || SOURCE[$i]="$OUTPUT/$(basename ${SOURCE[$i]})"
+    if [ -f ${SOURCE[$i]} ]; then echo "Ah, found it!"; continue; fi
+    if ! [ "x${SRCURL[$i]}" == "x" ]; then
+      echo "Will download file to $(dirname $SOURCE[$i])"
+      wget --no-check-certificate -nv -T 20 -O "${SOURCE[$i]}" "${SRCURL[$i]}" || true
+      if [ $? -ne 0 -o ! -s "${SOURCE[$i]}" ]; then
+        echo "Fail to download '$(basename ${SOURCE[$i]})'. Aborting the build."
+        mv -f "${SOURCE[$i]}" "${SOURCE[$i]}".FAIL
+        exit 1
+      fi
+    fi
+    if [ ! -f "${SOURCE[$i]}" -o ! -s "${SOURCE[$i]}" ]; then
+      echo "File '$(basename ${SOURCE[$i]})' not available. Aborting the build."
+      exit 1
+    fi
+  fi
+done
+
+if [ "$P1" == "--download" ]; then
+  echo "Download complete."
+  exit 0
+fi
+
+# --- PACKAGE BUILDING ---
+
+echo "++"
+echo "|| $PRGNAM-$VERSION"
+echo "++"
+
+cd $TMP/tmp-$PRGNAM
+echo "Extracting the source archive(s) for $PRGNAM..."
+tar -xf ${SOURCE[0]}
+cd SQ8L-${SRCVER}
+
+# Put each submodule tarball where git would have checked it out:
+unpack_submodule() {
+  rm -rf "$2"
+  mkdir -p "$2"
+  tar -xf "$1" --strip-components=1 -C "$2"
+}
+unpack_submodule ${SOURCE[1]} third_party/DPF
+unpack_submodule ${SOURCE[2]} third_party/DPF/dgl/src/pugl-upstream
+
+chown -R root:root .
+chmod -R u+w,go+r-w,a+rX-st .
+
+# Note: CMakeLists.txt applies patches/*.patch to DPF and pugl itself with
+# 'git apply' at configure time, so git must be installed.
+
+echo Building ...
+
+# There are no install rules; the plugins are copied from build/bin below.
+cmake -S $(pwd) -B build-${PRGNAM} \
+  -DCMAKE_C_FLAGS:STRING="$SLKCFLAGS" \
+  -DCMAKE_CXX_FLAGS:STRING="$SLKCFLAGS" \
+  -DCMAKE_C_FLAGS_RELEASE:STRING="$SLKCFLAGS" \
+  -DCMAKE_CXX_FLAGS_RELEASE:STRING="$SLKCFLAGS" \
+  -DCMAKE_BUILD_TYPE=Release \
+  2>&1 | tee $OUTPUT/configure-${PRGNAM}.log
+cmake --build build-${PRGNAM} $NUMJOBS \
+  --target SQ8L-lv2 SQ8L-vst2 SQ8L-vst3 SQ8L-clap \
+  2>&1 | tee $OUTPUT/make-${PRGNAM}.log
+
+ART=build-${PRGNAM}/bin
+
+# Plugins into /usr/lib64/{lv2,vst,vst3,clap}. SQ8L.so is the VST2 plugin
+# (there is no standalone). Carla-Rack in Reaper only scans ~/.lv2 and
+# /usr/lib/lv2, so link it there with:
+#   ln -s /usr/lib64/lv2/SQ8L.lv2 ~/.lv2/
+mkdir -p $PKG/usr/lib${LIBDIRSUFFIX}/{lv2,vst,vst3,clap}
+cp -a $ART/SQ8L.lv2 $PKG/usr/lib${LIBDIRSUFFIX}/lv2/
+cp -a $ART/SQ8L.vst3 $PKG/usr/lib${LIBDIRSUFFIX}/vst3/
+install -m0755 $ART/SQ8L.so $PKG/usr/lib${LIBDIRSUFFIX}/vst/SQ8L.so
+install -m0755 $ART/SQ8L.clap $PKG/usr/lib${LIBDIRSUFFIX}/clap/SQ8L.clap
+
+# Add documentation:
+mkdir -p $PKG/usr/doc/$PRGNAM-$VERSION
+cp -a $DOCS $PKG/usr/doc/$PRGNAM-$VERSION || true
+cat $SRCDIR/slack-required > $PKG/usr/doc/$PRGNAM-$VERSION/slack-required
+cat $SRCDIR/$(basename $0) > $PKG/usr/doc/$PRGNAM-$VERSION/$PRGNAM.SlackBuild
+chown -R root:root $PKG/usr/doc/$PRGNAM-$VERSION
+find $PKG/usr/doc -type d -exec chmod 755 {} \;
+find $PKG/usr/doc -type f -exec chmod 644 {} \;
+
+# Strip binaries:
+find $PKG/usr/lib${LIBDIRSUFFIX} -type f | xargs file | grep -e "executable" -e "shared object" | grep ELF \
+  | cut -f 1 -d : | xargs strip --strip-unneeded 2> /dev/null || true
+
+# Add a package description:
+mkdir -p $PKG/install
+cat $SRCDIR/slack-desc > $PKG/install/slack-desc
+cat $SRCDIR/slack-required > $PKG/install/slack-required
+
+# Build the package:
+cd $PKG
+makepkg --linkadd y --chown n $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz} 2>&1 | tee $OUTPUT/makepkg-${PRGNAM}.log
+cd $OUTPUT
+md5sum ${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz} > ${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz}.md5
+cd -
+cat $PKG/install/slack-desc | grep "^${PRGNAM}" > $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.txt
+cat $PKG/install/slack-required > $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.dep
+
+# Restore the original umask:
+umask ${_UMASK_}

@@ -1,0 +1,19 @@
+# HOW TO EDIT THIS FILE:
+# The "handy ruler" below makes it easier to edit a package description.  Line
+# up the first '|' above the ':' following the base package name, and the '|'
+# on the right side marks the last column you can put a character in.  You must
+# make exactly 11 lines for the formatting to be correct.  It's also
+# customary to leave one space after the ':' except on otherwise blank lines.
+
+    |-----handy-ruler------------------------------------------------------|
+sq8l: sq8l (Ensoniq SQ-80 emulation synthesizer)
+sq8l:
+sq8l: SQ8L is a 64-bit, multi platform rebuild of Siegfried Kullmann's
+sq8l: SQ8L plugin, a freeware emulation of the Ensoniq SQ-80 synthesizer.
+sq8l: The sound engine and editor reproduce the original exactly.
+sq8l:
+sq8l: Built as LV2, VST2, VST3 and CLAP plugins.
+sq8l:
+sq8l:
+sq8l: sq8l home: https://github.com/sq8l-revival/SQ8L
+sq8l:
