@@ -1,0 +1,259 @@
+#!/bin/sh
+# Copyright 2026  Dmitrii (vensder)
+# Based on Eric Hameleers' SlackBuild template.
+# All rights reserved.
+#
+#   Permission to use, copy, modify, and distribute this software for
+#   any purpose with or without fee is hereby granted, provided that
+#   the above copyright notice and this permission notice appear in all
+#   copies.
+#
+#   THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+#   WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+#   MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+#   IN NO EVENT SHALL THE AUTHORS AND COPYRIGHT HOLDERS AND THEIR
+#   CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+#   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+#   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+#   USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+#   ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+#   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+#   OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+#   SUCH DAMAGE.
+# -----------------------------------------------------------------------------
+#
+# Slackware SlackBuild script
+# ===========================
+# For:         adlplug-next
+# Descr:       ADLplug-Next (OPL3) and OPNplug-Next (OPN2) FM synthesizers
+# URL:         https://github.com/yumasansansan/ADLplug-Next
+# Build needs: cmake (>= 3.29), ninja, llvm (clang, lld), git, alsa-lib,
+#              jack2, freetype, X11 libs; an AVX2 CPU (the PGO training
+#              runs the plugin while building)
+# Needs:       jack2 (optional, for JACK in the standalones)
+# Changelog:
+# 2.1.0_nightly20261108-1: 13/nov/2026
+#              * Initial build. VERSION is the git tag as-is (default and
+#                only tag: nightly). The tag is cloned with its top-level
+#                submodules and packed, with the .git dirs, into
+#                ADLplug-Next-<tag>.tar.gz next to this script: configure
+#                applies patches/ to the submodules with git and needs them.
+#                MediaPerch's own submodules are not fetched: only its
+#                resampler is built, and one of them is not on GitHub.
+#              * Package version: cmake/Version.cmake plus the commit date
+#                (2.1.0_nightly20261108).
+#              * Built with the upstream presets adl-release and opn-release
+#                (Clang, LLD, Ninja, ThinLTO, PGO, AVX2): LV2, VST3 and a
+#                standalone of each. JUCE_JACK=1 added by sed (JUCE leaves
+#                JACK out of the standalone by default).
+#              * ADLplug_WERROR=OFF (warnings of other Clang versions).
+#              * set -o pipefail.
+#
+# Run 'sh adlplug-next.SlackBuild' to build a Slackware package.
+# 'nightly' moves: delete ADLplug-Next-nightly.tar.gz to fetch the newest one.
+# The package (.t?z) and .txt file as well as build logs are created in /tmp .
+# Install the package using 'installpkg' or 'upgradepkg --install-new'.
+#
+# -----------------------------------------------------------------------------
+
+PRGNAM=adlplug-next
+# The git tag to build, as-is. The package version is derived from it below.
+SRCTAG=${VERSION:-nightly}
+BUILD=${BUILD:-1}
+NUMJOBS=${NUMJOBS:-" -j$(nproc) "}
+TAG=${TAG:-vensder}
+
+DOCS="LICENSE LICENSES README.md DEVELOPER-NOTES.md docs/manual"
+GITURL=https://github.com/yumasansansan/ADLplug-Next.git
+
+# Where do we look for sources?
+SRCDIR=$(cd $(dirname $0); pwd)
+
+# Place to build (TMP) package (PKG) and output (OUTPUT) the program:
+TMP=${TMP:-/tmp/build}
+PKG=$TMP/package-$PRGNAM
+OUTPUT=${OUTPUT:-/tmp}
+
+# Made from a clone of the tag with its submodules (GitHub tag tarballs lack
+# them); unpacks to ADLplug-Next-$SRCTAG/ :
+SOURCE="$SRCDIR/ADLplug-Next-${SRCTAG}.tar.gz"
+
+##
+## --- with a little luck, you won't have to edit below this point --- ##
+##
+# Automatically determine the architecture we're building on:
+if [ -z "$ARCH" ]; then
+  case "$(uname -m)" in
+    i?86) ARCH=i586 ;;
+    arm*) readelf /usr/bin/file -A | egrep -q "Tag_CPU.*[4,5]" && ARCH=arm || ARCH=armv7hl ;;
+    # Unless $ARCH is already set, use uname -m for all other archs:
+    *) ARCH=$(uname -m) ;;
+  esac
+  export ARCH
+fi
+# Set CFLAGS/CXXFLAGS and LIBDIRSUFFIX:
+case "$ARCH" in
+  i?86)      SLKCFLAGS="-O2 -march=${ARCH} -mtune=i686"
+             SLKLDFLAGS=""; LIBDIRSUFFIX=""
+             ;;
+  x86_64)    SLKCFLAGS="-O2 -fPIC"
+             SLKLDFLAGS="-L/usr/lib64"; LIBDIRSUFFIX="64"
+             ;;
+  armv7hl)   SLKCFLAGS="-O2 -march=armv7-a -mfpu=vfpv3-d16"
+             SLKLDFLAGS=""; LIBDIRSUFFIX=""
+             ;;
+  *)         SLKCFLAGS=${SLKCFLAGS:-"-O2"}
+             SLKLDFLAGS=${SLKLDFLAGS:-""}; LIBDIRSUFFIX=${LIBDIRSUFFIX:-""}
+             ;;
+esac
+
+case "$ARCH" in
+    arm*)    TARGET=$ARCH-slackware-linux-gnueabi ;;
+    *)       TARGET=$ARCH-slackware-linux ;;
+esac
+
+# Exit the script on errors:
+set -e
+# Fail when cmake fails, not only when tee does:
+set -o pipefail
+trap 'echo "$0 FAILED at line ${LINENO}" | tee $OUTPUT/error-${PRGNAM}.log' ERR
+# Catch unitialized variables:
+set -u
+P1=${1:-1}
+
+# Save old umask and set to 0022:
+_UMASK_=$(umask)
+umask 0022
+
+# Create working directories:
+mkdir -p $OUTPUT          # place for the package to be saved
+mkdir -p $TMP/tmp-$PRGNAM # location to build the source
+mkdir -p $PKG             # place for the package to be built
+rm -rf $PKG/*             # always erase old package's contents
+rm -rf $TMP/tmp-$PRGNAM/* # remove the remnants of previous build
+rm -rf $OUTPUT/{configure,make,install,error,makepkg,patch}-$PRGNAM.log
+                          # remove old log files
+
+# Source file availability:
+if ! [ -f $SOURCE ]; then
+  echo "Source '$(basename $SOURCE)' not available yet..."
+  # Check if the $SRCDIR is writable at all - if not, save to $OUTPUT
+  [ -w "$SRCDIR" ] || SOURCE="$OUTPUT/$(basename $SOURCE)"
+fi
+if ! [ -f $SOURCE ]; then
+  echo "Cloning tag $SRCTAG with submodules..."
+  rm -rf $TMP/git-$PRGNAM
+  mkdir -p $TMP/git-$PRGNAM
+  git clone --depth 1 --branch $SRCTAG $GITURL \
+    $TMP/git-$PRGNAM/ADLplug-Next-$SRCTAG
+  # Top-level submodules only (see the Changelog):
+  git -C $TMP/git-$PRGNAM/ADLplug-Next-$SRCTAG submodule update --init --depth 1
+  # Commit date, for the package version:
+  git -C $TMP/git-$PRGNAM/ADLplug-Next-$SRCTAG log -1 --format=%cd --date=format:%Y%m%d \
+    > $TMP/git-$PRGNAM/ADLplug-Next-$SRCTAG/.commit-date
+  # The .git dirs stay in: configure patches the submodules with git.
+  tar -czf $SOURCE -C $TMP/git-$PRGNAM ADLplug-Next-$SRCTAG
+  rm -rf $TMP/git-$PRGNAM
+fi
+
+if [ "$P1" == "--download" ]; then
+  echo "Download complete."
+  exit 0
+fi
+
+# --- PACKAGE BUILDING ---
+
+cd $TMP/tmp-$PRGNAM
+echo "Extracting the source archive for $PRGNAM..."
+tar -xf $SOURCE
+cd ADLplug-Next-${SRCTAG}
+
+# Package version: 2.1.0 from cmake/Version.cmake, plus the tag and the
+# commit date: 2.1.0_nightly20261108
+UPVER=$(sed -n 's/^set(ADLplug_VERSION "\([^"]*\)")/\1/p' cmake/Version.cmake)
+VERSION=$(echo ${UPVER}_${SRCTAG}$(cat .commit-date) | tr - _)
+
+echo "++"
+echo "|| $PRGNAM-$VERSION"
+echo "++"
+
+chown -R root:root .
+chmod -R u+w,go+r-w,a+rX-st .
+
+# JACK in the standalones (JUCE dlopens libjack, so jack2 stays optional):
+sed -i CMakeLists.txt \
+  -e 's/^  JUCE_STRICT_REFCOUNTEDPOINTER=1$/&\n  JUCE_JACK=1/'
+grep -q '^  JUCE_JACK=1$' CMakeLists.txt
+
+echo Building ...
+
+# The upstream presets set the compilers, linker, generator and flags, so
+# no SLKCFLAGS here. Two variants: adl -> ADLplug-Next, opn -> OPNplug-Next.
+# ADLplug_WERROR is off: the presets turn it on for the LLVM upstream tests
+# with, and another Clang warns about other things (Clang 20:
+# -Wperf-constraint-implies-noexcept).
+for CHIP in adl opn ; do
+  cmake --preset $CHIP-release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_INSTALL_LIBDIR=lib${LIBDIRSUFFIX} \
+    -DADLplug_INSTALL_LV2DIR=lib${LIBDIRSUFFIX}/lv2 \
+    -DADLplug_INSTALL_VST3DIR=lib${LIBDIRSUFFIX}/vst3 \
+    -DADLplug_ARCH=avx2 \
+    -DADLplug_WERROR=OFF \
+    -DADLplug_LV2=ON \
+    -DADLplug_VST3=ON \
+    -DADLplug_Standalone=ON \
+    2>&1 | tee -a $OUTPUT/configure-${PRGNAM}.log
+  cmake --build --preset $CHIP-release $NUMJOBS 2>&1 | tee -a $OUTPUT/make-${PRGNAM}.log
+  DESTDIR=$PKG cmake --install build/$CHIP-release 2>&1 | tee -a $OUTPUT/install-${PRGNAM}.log
+done
+
+# Installed: /usr/bin/{ADLplug-Next,OPNplug-Next}, /usr/lib64/lv2/
+# {ADLplug-Next,OPNplug-Next}.lv2, /usr/lib64/vst3/{ADLplug-Next,
+# OPNplug-Next}.vst3. Carla-Rack in Reaper only scans ~/.lv2 and
+# /usr/lib/lv2, so link them there with:
+#   ln -s /usr/lib64/lv2/ADLplug-Next.lv2 /usr/lib64/lv2/OPNplug-Next.lv2 ~/.lv2/
+
+# Add documentation (the bank notices land in /usr/share/doc):
+mkdir -p $PKG/usr/doc/$PRGNAM-$VERSION
+cp -a $DOCS $PKG/usr/doc/$PRGNAM-$VERSION || true
+if [ -d $PKG/usr/share/doc ]; then
+  mv $PKG/usr/share/doc/* $PKG/usr/doc/$PRGNAM-$VERSION/
+  rmdir $PKG/usr/share/doc
+fi
+cat $SRCDIR/slack-required > $PKG/usr/doc/$PRGNAM-$VERSION/slack-required
+cat $SRCDIR/$(basename $0) > $PKG/usr/doc/$PRGNAM-$VERSION/$PRGNAM.SlackBuild
+chown -R root:root $PKG/usr/doc/$PRGNAM-$VERSION
+find $PKG/usr/doc -type d -exec chmod 755 {} \;
+find $PKG/usr/doc -type f -exec chmod 644 {} \;
+
+# Strip binaries:
+find $PKG/usr/bin $PKG/usr/lib${LIBDIRSUFFIX} -type f | xargs file | grep -e "executable" -e "shared object" | grep ELF \
+  | cut -f 1 -d : | xargs strip --strip-unneeded 2> /dev/null || true
+
+# Add a package description:
+mkdir -p $PKG/install
+cat $SRCDIR/slack-desc > $PKG/install/slack-desc
+cat $SRCDIR/slack-required > $PKG/install/slack-required
+cat <<'DOINST' > $PKG/install/doinst.sh
+if [ -x /usr/bin/update-desktop-database ]; then
+  /usr/bin/update-desktop-database -q usr/share/applications >/dev/null 2>&1
+fi
+if [ -e usr/share/icons/hicolor/icon-theme.cache ]; then
+  if [ -x /usr/bin/gtk-update-icon-cache ]; then
+    /usr/bin/gtk-update-icon-cache -f usr/share/icons/hicolor >/dev/null 2>&1
+  fi
+fi
+DOINST
+
+# Build the package:
+cd $PKG
+makepkg --linkadd y --chown n $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz} 2>&1 | tee $OUTPUT/makepkg-${PRGNAM}.log
+cd $OUTPUT
+md5sum ${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz} > ${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz}.md5
+cd -
+cat $PKG/install/slack-desc | grep "^${PRGNAM}" > $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.txt
+cat $PKG/install/slack-required > $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.dep
+
+# Restore the original umask:
+umask ${_UMASK_}

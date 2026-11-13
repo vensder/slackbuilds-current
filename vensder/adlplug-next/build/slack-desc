@@ -1,0 +1,19 @@
+# HOW TO EDIT THIS FILE:
+# The "handy ruler" below makes it easier to edit a package description.  Line
+# up the first '|' above the ':' following the base package name, and the '|'
+# on the right side marks the last column you can put a character in.  You must
+# make exactly 11 lines for the formatting to be correct.  It's also
+# customary to leave one space after the ':' except on otherwise blank lines.
+
+            |-----handy-ruler------------------------------------------------------|
+adlplug-next: adlplug-next (FM chip synthesizers, OPL3 and OPN2)
+adlplug-next:
+adlplug-next: ADLplug-Next is a continuation of ADLplug, a synthesizer based on
+adlplug-next: emulations of the Yamaha OPL3 FM chip (libADLMIDI). OPNplug-Next
+adlplug-next: is its Yamaha OPN2 (YM2612) variant (libOPNMIDI).
+adlplug-next:
+adlplug-next: Built as LV2 and VST3 plugins and standalone programs (JACK,
+adlplug-next: ALSA), for CPUs with AVX2.
+adlplug-next:
+adlplug-next: adlplug-next home: https://github.com/yumasansansan/ADLplug-Next
+adlplug-next:
