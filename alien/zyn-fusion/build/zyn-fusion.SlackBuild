@@ -1,0 +1,339 @@
+#!/bin/sh
+# $Id: zyn-fusion.SlackBuild,v 1.3 2020/10/10 19:01:06 root Exp root $
+# Copyright 2020  Eric Hameleers, Eindhoven, NL
+# All rights reserved.
+#
+#   Permission to use, copy, modify, and distribute this software for
+#   any purpose with or without fee is hereby granted, provided that
+#   the above copyright notice and this permission notice appear in all
+#   copies.
+#
+#   THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+#   WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+#   MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+#   IN NO EVENT SHALL THE AUTHORS AND COPYRIGHT HOLDERS AND THEIR
+#   CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+#   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+#   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+#   USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+#   ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+#   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+#   OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+#   SUCH DAMAGE.
+# -----------------------------------------------------------------------------
+#
+# Slackware SlackBuild script 
+# ===========================
+# By:          Eric Hameleers <alien@slackware.com>
+# For:         zyn-fusion
+# Descr:       real-time software synthesizer
+# URL:         https://zynaddsubfx.sourceforge.io/
+# Build needs: 
+# Needs:       dssi, jack2, liblo, mxml, portaudio
+# Changelog:   
+# 3.0.5-1:     21/Jan/2020 by Eric Hameleers <alien@slackware.com>
+#              * Initial build.
+# 3.0.5-2:     01/jun/2020 by Eric Hameleers <alien@slackware.com>
+#              * Fix hard-coded paths preventing zyn-fusion from being useful,
+#                thanks to Bob Funk.
+# 3.0.5-3:     10/oct/2020 by Eric Hameleers <alien@slackware.com>
+#              * Add 'X-DAW' category to the desktop file (for liveslak).
+# 
+# Run 'sh zyn-fusion.SlackBuild' to build a Slackware package.
+# The package (.t?z) and .txt file as well as build logs are created in /tmp .
+# Install the package using 'installpkg' or 'upgradepkg --install-new'.
+#
+# -----------------------------------------------------------------------------
+
+PRGNAM=zyn-fusion
+PRGZYN=zynaddsubfx
+PRGFUSION=zyn-fusion-ui-src
+VERSION=${VERSION:-3.0.5}
+BUILD=${BUILD:-3}
+NUMJOBS=${NUMJOBS:-" -j$(nproc) "}
+TAG=${TAG:-alien}
+
+DOCS="AUTHORS* ChangeLog COPYING HISTORY README*"
+
+LIBUV=1.9.1
+
+# Where do we look for sources?
+SRCDIR=$(cd $(dirname $0); pwd)
+
+# Place to build (TMP) package (PKG) and output (OUTPUT) the program:
+TMP=${TMP:-/tmp/build}
+PKG=$TMP/package-$PRGNAM
+OUTPUT=${OUTPUT:-/tmp}
+
+SOURCE[0]="$SRCDIR/${PRGZYN}-${VERSION}.tar.bz2"
+SRCURL[0]="https://downloads.sourceforge.net/${PRGZYN}/${PRGZYN}-${VERSION}.tar.bz2"
+
+SOURCE[1]="$SRCDIR/${PRGFUSION}-${VERSION}.tar.bz2"
+SRCURL[1]="https://downloads.sourceforge.net/zynaddsubfx/${PRGFUSION}-${VERSION}.tar.bz2"
+
+SOURCE[2]="$SRCDIR/libuv-v${LIBUV}.tar.gz"
+SRCURL[2]="http://dist.libuv.org/dist/v${LIBUV}/libuv-v${LIBUV}.tar.gz"
+
+##
+## --- with a little luck, you won't have to edit below this point --- ##
+##
+
+# Automatically determine the architecture we're building on:
+if [ -z "$ARCH" ]; then
+  case "$(uname -m)" in
+    i?86) ARCH=i586 ;;
+    arm*) readelf /usr/bin/file -A | egrep -q "Tag_CPU.*[4,5]" && ARCH=arm || ARCH=armv7hl ;;
+    # Unless $ARCH is already set, use uname -m for all other archs:
+    *) ARCH=$(uname -m) ;;
+  esac
+  export ARCH
+fi
+# Set CFLAGS/CXXFLAGS and LIBDIRSUFFIX:
+case "$ARCH" in
+  i?86)      SLKCFLAGS="-O2 -march=${ARCH} -mtune=i686"
+             SLKLDFLAGS=""; LIBDIRSUFFIX=""
+             ;;
+  x86_64)    SLKCFLAGS="-O2 -fPIC"
+             SLKLDFLAGS="-L/usr/lib64"; LIBDIRSUFFIX="64"
+             ;;
+  armv7hl)   SLKCFLAGS="-O2 -march=armv7-a -mfpu=vfpv3-d16"
+             SLKLDFLAGS=""; LIBDIRSUFFIX=""
+             ;;
+  *)         SLKCFLAGS=${SLKCFLAGS:-"-O2"}
+             SLKLDFLAGS=${SLKLDFLAGS:-""}; LIBDIRSUFFIX=${LIBDIRSUFFIX:-""}
+             ;;
+esac
+
+case "$ARCH" in
+    arm*)    TARGET=$ARCH-slackware-linux-gnueabi ;;
+    *)       TARGET=$ARCH-slackware-linux ;;
+esac
+
+# Exit the script on errors:
+set -e
+trap 'echo "$0 FAILED at line ${LINENO}" | tee $OUTPUT/error-${PRGNAM}.log' ERR
+# Catch unitialized variables:
+set -u
+P1=${1:-1}
+
+# Save old umask and set to 0022:
+_UMASK_=$(umask)
+umask 0022
+
+# Create working directories:
+mkdir -p $OUTPUT          # place for the package to be saved
+mkdir -p $TMP/tmp-$PRGNAM # location to build the source
+mkdir -p $PKG             # place for the package to be built
+rm -rf $PKG/*             # always erase old package's contents
+rm -rf $TMP/tmp-$PRGNAM/* # remove the remnants of previous build
+rm -rf $OUTPUT/{checkout,configure,make,install,error,makepkg,patch}-$PRGNAM.log
+                          # remove old log files
+
+# Source file availability:
+for (( i = 0; i < ${#SOURCE[*]}; i++ )) ; do
+  if ! [ -f ${SOURCE[$i]} ]; then
+    echo "Source '$(basename ${SOURCE[$i]})' not available yet..."
+    # Check if the $SRCDIR is writable at all - if not, download to $OUTPUT
+    [ -w "$SRCDIR" ] || SOURCE[$i]="$OUTPUT/$(basename ${SOURCE[$i]})"
+    if [ -f ${SOURCE[$i]} ]; then echo "Ah, found it!"; continue; fi
+    if ! [ "x${SRCURL[$i]}" == "x" ]; then
+      echo "Will download file to $(dirname $SOURCE[$i])"
+      wget --no-check-certificate -nv -T 20 -O "${SOURCE[$i]}" "${SRCURL[$i]}" || true
+      if [ $? -ne 0 -o ! -s "${SOURCE[$i]}" ]; then
+        echo "Fail to download '$(basename ${SOURCE[$i]})'. Aborting the build."
+        mv -f "${SOURCE[$i]}" "${SOURCE[$i]}".FAIL
+        exit 1
+      fi
+    else
+      echo "File '$(basename ${SOURCE[$i]})' not available. Aborting the build."
+      exit 1
+    fi
+  fi
+done
+
+if [ "$P1" == "--download" ]; then
+  echo "Download complete."
+  exit 0
+fi
+
+# --- PACKAGE BUILDING ---
+
+echo "++"
+echo "|| $PRGNAM-$VERSION"
+echo "++"
+
+cd $TMP/tmp-$PRGNAM
+echo "Extracting the source archive(s) for $PRGNAM..."
+for (( i = 0; i < ${#SOURCE[*]}; i++ )) ; do
+  tar -xvf ${SOURCE[$i]}
+done
+chown -R root:root *
+chmod -R u+w,go+r-w,a+rX-st *
+
+# libuv is a depdendency for building the zyn-fusion UI:
+mv -i libuv-v${LIBUV} ${PRGFUSION}-${VERSION}/deps/
+
+# The original bash-completion cmake script does not honor DESTDIR.
+# Replace it with a much more straightforward implementation.
+cp $SRCDIR/BashCompletion.cmake ${PRGZYN}-${VERSION}/cmake/BashCompletion.cmake
+
+# Replace hard-coded '/opt/zyn-fusion' with '/usr/libexec/zyn-fusion':
+sed -e "s,/opt/zyn-fusion,/usr/libexec/zyn-fusion," \
+    -i $(grep -rl '/opt/zyn-fusion' zyn*)
+
+echo Building ...
+
+# Prepare the ruby-zest UI component so the synth build can pick it up:
+cd ${PRGFUSION}-${VERSION}/
+  # Fix version number in Makefile
+  sed -i Makefile -e"s|3.0.0-pre|${VERSION}|"
+  # Fix font permissions:
+  chmod 0644 deps/mruby-nanovg/examples/*.ttf
+  chmod 0644 deps/nanovg/example/*.ttf
+  # Build:
+  touch $OUTPUT/configure-${PRGNAM}_fusion.log
+  ruby rebuild-fcache.rb \
+  2>&1 | tee $OUTPUT/configure-${PRGNAM}_fusion.log
+  make setup \
+  2>&1 | tee $OUTPUT/configure-${PRGNAM}_fusion.log
+  make builddep \
+  2>&1 | tee $OUTPUT/configure-${PRGNAM}_fusion.log
+cd - 1>/dev/null
+
+# Compile the synth:
+cd ${PRGZYN}-${VERSION}
+  mkdir -p build-${PRGZYN}
+  cd build-${PRGZYN}
+  cmake \
+    -DCMAKE_C_FLAGS:STRING="$SLKCFLAGS" \
+    -DCMAKE_CXX_FLAGS:STRING="$SLKCFLAGS" \
+    -DCMAKE_C_FLAGS_RELEASE:STRING="$SLKCFLAGS" \
+    -DCMAKE_CXX_FLAGS_RELEASE:STRING="$SLKCFLAGS" \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DMAN_INSTALL_DIR=/usr/man \
+    -DSYSCONF_INSTALL_DIR=/etc \
+    -DLIB_SUFFIX=${LIBDIRSUFFIX} \
+    -DDefaultOutput=jack \
+    -DDefaultInput=jack \
+    -DGuiModule=zest \
+    -DJackEnable=ON \
+    -DPluginLibDir=lib${LIBDIRSUFFIX} \
+    ..
+  make $NUMJOBS 2>&1 | tee $OUTPUT/make-${PRGNAM}.log
+  make DESTDIR=$PKG install 2>&1 | tee $OUTPUT/install-${PRGNAM}.log
+  cd - 1>/dev/null
+
+  ## Build the external programs we need:
+  #make $NUMJOBS -C ExternalPrograms/Controller \
+  #   2>&1 | tee $OUTPUT/make-${PRGNAM}_external.log
+  #make $NUMJOBS -C ExternalPrograms/Spliter \
+  #   2>&1 | tee -a $OUTPUT/make-${PRGNAM}_external.log
+
+  ## And install those too:
+  #install -m 0755 ExternalPrograms/Controller/controller \
+  #  ${PKG}/usr/bin/${PRGZYN}-controller
+  #install -m 0755 ExternalPrograms/Spliter/spliter \
+  #  ${PKG}/usr/bin/${PRGZYN}-spliter 
+
+  # Install banks and examples:
+  mkdir -p ${PKG}/usr/share/${PRGNAM}
+  cp -a instruments/banks ${PKG}/usr/share/${PRGNAM}
+  cp -a instruments/examples ${PKG}/usr/share/${PRGNAM}
+
+  # Install application icons:
+  install -Dm 0644 ${PRGZYN}.ico ${PKG}/usr/share/pixmaps/${PRGZYN}.ico
+  convert ${PRGZYN}.ico ${PKG}/usr/share/pixmaps/${PRGZYN}.png
+  install -Dm 0644 ${PRGZYN}.svg \
+    ${PKG}/usr/share/icons/hicolor/scalable/apps/${PRGZYN}.svg
+
+  # Add documentation:
+  mkdir -p $PKG/usr/doc/$PRGNAM-$VERSION
+  cp -a $DOCS $PKG/usr/doc/$PRGNAM-$VERSION || true
+  cat $SRCDIR/$(basename $0) > $PKG/usr/doc/$PRGNAM-$VERSION/$PRGNAM.SlackBuild
+  chown -R root:root $PKG/usr/doc/$PRGNAM-$VERSION
+  find $PKG/usr/doc -type f -exec chmod 644 {} \;
+  # Remove the unwanted bits;
+  rm -rf $PKG/usr/share/doc
+
+cd $TMP/tmp-$PRGNAM
+
+# Build and install the UI component:
+cd ${PRGFUSION}-${VERSION}/
+  touch $OUTPUT/make-${PRGNAM}_fusion.log
+  make clean \
+    2>&1 | tee -a $OUTPUT/make-${PRGNAM}_fusion.log
+  rm -f package/qml/*.qml
+  ruby rebuild-fcache.rb \
+    2>&1 | tee -a $OUTPUT/make-${PRGNAM}_fusion.log
+  VERSION=${VERSION} BUILD_MODE=release make \
+    2>&1 | tee -a $OUTPUT/make-${PRGNAM}_fusion.log
+  VERSION=${VERSION} BUILD_MODE=release make pack \
+    2>&1 | tee -a $OUTPUT/make-${PRGNAM}_fusion.log
+  rm package/qml/*.qml
+
+  # And install zyn-fusion:
+  mkdir -p ${PKG}/usr/bin
+  mkdir -p ${PKG}/usr/libexec/${PRGNAM}/qml
+  install -m 0755 package/zest ${PKG}/usr/libexec/${PRGNAM}/${PRGNAM}
+  install -m 0644 package/VERSION -t ${PKG}/usr/libexec/${PRGNAM}/
+  install -m 0755 package/libzest.so -t ${PKG}/usr/libexec/${PRGNAM}/
+  cp -av package/font ${PKG}/usr/libexec/${PRGNAM}/
+  cp -av package/schema ${PKG}/usr/libexec/${PRGNAM}/
+  #cp -av package/qml ${PKG}/usr/libexec/${PRGNAM}/
+  touch ${PKG}/usr/libexec/${PRGNAM}/qml/MainWindow.qml
+  # Install a wrapper script to invoke zyn-fusion:
+  cat <<EOT > ${PKG}/usr/bin/${PRGNAM}
+#!/bin/sh
+cd /usr/libexec/${PRGNAM}/
+./${PRGNAM}
+EOT
+chmod 755 ${PKG}/usr/bin/${PRGNAM}
+
+cd - 1>/dev/null
+
+# Add 'X-DAW' category to the desktop file (for liveslak):
+for DESKTOPF in $PKG/usr/share/applications/*.desktop ; do
+  if ! grep -q X-DAW $DESKTOPF ; then
+    sed -i $DESKTOPF \
+      -e "s/^Categories=\(.*\)/Categories=X-DAW;\1/"
+  fi
+done
+
+# Add this to the doinst.sh:
+mkdir -p $PKG/install
+cat <<EOINS >> $PKG/install/doinst.sh
+# Update the mime database:
+if [ -x usr/bin/update-mime-database ]; then
+  chroot . /usr/bin/update-mime-database usr/share/mime >/dev/null 2>&1
+fi
+
+EOINS
+
+# Compress the man page(s):
+if [ -d $PKG/usr/man ]; then
+  find $PKG/usr/man -type f -name "*.?" -exec gzip -9f {} \;
+  for i in $(find $PKG/usr/man -type l -name "*.?") ; do ln -s $( readlink $i ).gz $i.gz ; rm $i ; done
+fi
+
+# Strip binaries (if any):
+find $PKG | xargs file | grep -e "executable" -e "shared object" | grep ELF \
+  | cut -f 1 -d : | xargs strip --strip-unneeded 2> /dev/null || true
+
+# Add a package description:
+mkdir -p $PKG/install
+cat $SRCDIR/slack-desc > $PKG/install/slack-desc
+cat $SRCDIR/slack-required > $PKG/install/slack-required
+
+# Build the package:
+cd $PKG
+makepkg --linkadd y --chown n $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz} 2>&1 | tee $OUTPUT/makepkg-${PRGNAM}.log
+cd $OUTPUT
+md5sum ${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz} > ${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz}.md5
+cd -
+cat $PKG/install/slack-desc | grep "^${PRGNAM}" > $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.txt
+cat $PKG/install/slack-required > $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.dep
+
+# Restore the original umask:
+umask ${_UMASK_}
+

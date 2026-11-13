@@ -1,0 +1,19 @@
+# HOW TO EDIT THIS FILE:
+# The "handy ruler" below makes it easier to edit a package description.  Line
+# up the first '|' above the ':' following the base package name, and the '|'
+# on the right side marks the last column you can put a character in.  You must
+# make exactly 11 lines for the formatting to be correct.  It's also
+# customary to leave one space after the ':' except on otherwise blank lines.
+
+          |-----handy-ruler------------------------------------------------------|
+zyn-fusion: zyn-fusion (real-time software synthesizer)
+zyn-fusion:
+zyn-fusion: ZynAddSubFX is a fully featured open source software synthesizer
+zyn-fusion: capable of making a countless number of instruments, like some
+zyn-fusion: you would expect from expensive hardware.
+zyn-fusion: The synth is polyphonic with additive, subtractive and pad synthesis,
+zyn-fusion: waveform generator, effects, filters. layered instrument kits,
+zyn-fusion: a virtual keyboard and plugin support. And much more.
+zyn-fusion: This is the headless synthesizer (Zyn) with a new UI (Fusion).
+zyn-fusion:
+zyn-fusion: zyn-fusion home: https://zynaddsubfx.sourceforge.io/
