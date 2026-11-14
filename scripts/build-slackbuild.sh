@@ -29,6 +29,7 @@ Usage: $0 [-t tree] [-cdfinqv] [-V version] <package>
   -d          also process dependencies from slack-required, recursively;
               missing or outdated dependencies are built and installed first
   -f          rebuild <package> even if this version is already installed
+              (keeps the installed version if it is newer than the default)
   -i          install/upgrade <package> after a successful build
   -n          build the newest upstream version instead of the SlackBuild default
   -q          quiet: send SlackBuild output to a log file in $OUTPUT
@@ -401,6 +402,17 @@ process_pkg() {
         if [ $NEWEST -eq 1 ] && [ -n "$latest" ] && ver_gt "$latest" "$sb_ver"; then
             target=$latest
         fi
+    fi
+
+    # -f without -V/-n rebuilds the installed version when it is newer than
+    # the SlackBuild default (installed earlier with -V or -n): no downgrade.
+    # Only for plain versions (git tags/nightly names differ from the
+    # package version, e.g. sq8l v1.0.0-beta.3 -> 1.0.0_beta.3).
+    if [ -z "$parent" ] && [ $FORCE -eq 1 ] && [ -z "$USER_VER" ] && [ $NEWEST -eq 0 ] \
+        && [[ $inst_ver == [0-9]* ]] && [[ $target == [0-9]* ]] \
+        && ver_gt "$inst_ver" "$target"; then
+        echo "Installed $inst_ver is newer than the SlackBuild default, rebuilding $inst_ver (-f)."
+        target=$inst_ver
     fi
 
     if [ -z "$target" ]; then
