@@ -171,6 +171,7 @@ cd meson-build
     --mandir=/usr/man \
     --libdir=/usr/lib${LIBDIRSUFFIX} \
     --buildtype=release \
+    -Ddocs=disabled \
     .. \
     2>&1 | tee $OUTPUT/configure-${PRGNAM}.log
   ninja $NUMJOBS \
