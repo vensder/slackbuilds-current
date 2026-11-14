@@ -31,6 +31,9 @@ PKGNAM=raptor2
 VERSION=${VERSION:-2.0.16}
 BUILD=${BUILD:-4alien}
 
+# Source is downloaded from here when it is not in $CWD yet:
+SRCURL="https://download.librdf.org/source/${PKGNAM}-${VERSION}.tar.gz"
+
 NUMJOBS=${NUMJOBS:-" -j$(expr $(nproc) + 1) "}
 
 # Automatically determine the architecture we're building on:
@@ -77,6 +80,17 @@ esac
 
 TMP=${TMP:-/tmp}
 PKG=$TMP/package-$PKGNAM
+
+# Download the source if it is missing:
+if ! ls $CWD/$PKGNAM-$VERSION.tar.?z >/dev/null 2>&1; then
+  echo "Downloading $SRCURL ..."
+  if ! wget -nv -T 20 -O $CWD/$PKGNAM-$VERSION.tar.gz.part "$SRCURL"; then
+    rm -f $CWD/$PKGNAM-$VERSION.tar.gz.part
+    echo "Download failed, put $PKGNAM-$VERSION.tar.gz in $CWD"
+    exit 1
+  fi
+  mv $CWD/$PKGNAM-$VERSION.tar.gz.part $CWD/$PKGNAM-$VERSION.tar.gz
+fi
 
 rm -rf $PKG
 mkdir -p $TMP $PKG
