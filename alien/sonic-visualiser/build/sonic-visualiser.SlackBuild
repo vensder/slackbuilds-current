@@ -161,6 +161,11 @@ echo "Extracting the source archive(s) for $PRGNAM..."
 tar -xf ${SOURCE}
 cd ${PRGNAM}-${VERSION}
 
+# Qt 6.11: QString::arg() no longer takes std::atomic<float> (upstream fix):
+if [ -f $SRCDIR/patches/${PRGNAM}-${VERSION}_qt6.11.patch ]; then
+  patch -p1 --verbose < $SRCDIR/patches/${PRGNAM}-${VERSION}_qt6.11.patch || exit 1
+fi
+
 chown -R root:root .
 chmod -R u+w,go+r-w,a+rX-st .
 

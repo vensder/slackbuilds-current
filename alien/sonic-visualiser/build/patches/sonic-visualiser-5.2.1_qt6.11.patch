@@ -1,0 +1,81 @@
+Qt 6.11 / GCC 16 build fixes for sonic-visualiser 5.2.1, from upstream:
+  svcore 2dee776 Fix incompatibility between atomic and qt with just-updated compiler and libraries
+  svgui  d5dccf3 Fix compile error in debug code with new Qt
+
+diff --git a/svcore/data/model/EditableDenseThreeDimensionalModel.cpp b/svcore/data/model/EditableDenseThreeDimensionalModel.cpp
+index da5ff90..7a62163 100644
+--- a/svcore/data/model/EditableDenseThreeDimensionalModel.cpp
++++ b/svcore/data/model/EditableDenseThreeDimensionalModel.cpp
+@@ -458,10 +458,10 @@ EditableDenseThreeDimensionalModel::toXml(QTextStream &out,
+     Model::toXml
+         (out, indent,
+          QString("type=\"dense\" dimensions=\"3\" windowSize=\"%1\" yBinCount=\"%2\" minimum=\"%3\" maximum=\"%4\" dataset=\"%5\" startFrame=\"%6\" %7")
+-         .arg(m_resolution)
+-         .arg(m_yBinCount)
+-         .arg(m_minimum)
+-         .arg(m_maximum)
++         .arg(m_resolution.load())
++         .arg(m_yBinCount.load())
++         .arg(m_minimum.load())
++         .arg(m_maximum.load())
+          .arg(getExportId())
+          .arg(m_startFrame)
+          .arg(extraAttributes));
+diff --git a/svcore/data/model/NoteModel.h b/svcore/data/model/NoteModel.h
+index 8c3a421..28e145c 100644
+--- a/svcore/data/model/NoteModel.h
++++ b/svcore/data/model/NoteModel.h
+@@ -403,8 +403,8 @@ public:
+              .arg(m_events.getExportId())
+              .arg(m_subtype == FLEXI_NOTE ? "flexinote" : "note")
+              .arg(m_valueQuantization)
+-             .arg(m_valueMinimum)
+-             .arg(m_valueMaximum)
++             .arg(m_valueMinimum.load())
++             .arg(m_valueMaximum.load())
+              .arg(encodeEntities(m_units))
+              .arg(extraAttributes));
+         
+diff --git a/svcore/data/model/RegionModel.h b/svcore/data/model/RegionModel.h
+index 916a047..db021ae 100644
+--- a/svcore/data/model/RegionModel.h
++++ b/svcore/data/model/RegionModel.h
+@@ -335,8 +335,8 @@ public:
+              .arg(m_events.getExportId())
+              .arg("region")
+              .arg(m_valueQuantization)
+-             .arg(m_valueMinimum)
+-             .arg(m_valueMaximum)
++             .arg(m_valueMinimum.load())
++             .arg(m_valueMaximum.load())
+              .arg(encodeEntities(m_units))
+              .arg(extraAttributes));
+         
+diff --git a/svcore/data/model/SparseTimeValueModel.h b/svcore/data/model/SparseTimeValueModel.h
+index fe6e70c..7033503 100644
+--- a/svcore/data/model/SparseTimeValueModel.h
++++ b/svcore/data/model/SparseTimeValueModel.h
+@@ -342,8 +342,8 @@ public:
+              .arg("true") // always true after model reaches 100% -
+                           // subsequent events are always notified
+              .arg(m_events.getExportId())
+-             .arg(m_valueMinimum)
+-             .arg(m_valueMaximum)
++             .arg(m_valueMinimum.load())
++             .arg(m_valueMaximum.load())
+              .arg(encodeEntities(m_units))
+              .arg(extraAttributes));
+         
+diff --git a/svgui/view/Pane.cpp b/svgui/view/Pane.cpp
+index fb802c4..8d4c229 100644
+--- a/svgui/view/Pane.cpp
++++ b/svgui/view/Pane.cpp
+@@ -1423,7 +1423,7 @@ modifierNames(Qt::KeyboardModifiers m)
+     if (m & Qt::GroupSwitchModifier) s << "GroupSwitch";
+     m &= (~ (Qt::ShiftModifier | Qt::ControlModifier | Qt::AltModifier |
+              Qt::MetaModifier | Qt::KeypadModifier | Qt::GroupSwitchModifier));
+-    if (m) s << QString(" (residue %1)").arg(m);
++    if (m) s << QString(" (residue %1)").arg((uint64_t)m);
+     if (s.empty()) return "(none)";
+     else return s.join(" | ");
+ }
