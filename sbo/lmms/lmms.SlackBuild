@@ -86,6 +86,7 @@ cd build
     -DCMAKE_CXX_FLAGS:STRING="$SLKCFLAGS -Wno-error" \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DCMAKE_INSTALL_LIBDIR=lib${LIBDIRSUFFIX} \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DBASHCOMP_PKG_PATH=$PKG/usr/share/bash-completion/completions \
     -DWANT_QT5=1 \
     ..

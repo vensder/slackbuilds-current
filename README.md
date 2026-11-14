@@ -69,7 +69,7 @@ SlackBuild, except git snapshots (tarball only in Alien's build dir).
 |---|---|---|---|
 | fltk | sbo | 1.4.5 (SBo: 1.3.8) | doc globs `CHANGES* CREDITS* README*`; `rm -rf $PKG/usr/man/cat*` |
 | stk | sbo | 5.0.1 (SBo: 4.4.4) | doc globs `INSTALL* README*` |
-| lmms | sbo | 1.2.2 | CMake 4 seds (CMP0026, CMP0050, LOCATION); `$(pkg-config --cflags cairo)` in `SLKCFLAGS`; `#include "CarlaDefines.h"` in `plugins/carlabase/carla.h` |
+| lmms | sbo | 1.2.2 | `-DCMAKE_POLICY_VERSION_MINIMUM=3.5`; CMake 4 seds (CMP0026, CMP0050, LOCATION); `$(pkg-config --cflags cairo)` in `SLKCFLAGS`; `#include "CarlaDefines.h"` in `plugins/carlabase/carla.h` |
 | yoshimi | sbo | 2.3.6.5 (SBo: 2.3.2) | top dir `${PRGNAM}_$VERSION`; doc glob `README*` |
 | zynaddsubfx | alien | 3.0.6 | `patches/zynaddsubfx-3.0.6-mxml4.patch` (upstream PR #315, via Gentoo) for mxml 4 |
 | qmmp | alien | 2.4.2 | `SRCURL` moved to `files/qmmp/${VERSION%.*}/` |
