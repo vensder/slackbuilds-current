@@ -1,0 +1,19 @@
+# HOW TO EDIT THIS FILE:
+# The "handy ruler" below makes it easier to edit a package description.  Line
+# up the first '|' above the ':' following the base package name, and the '|'
+# on the right side marks the last column you can put a character in.  You must
+# make exactly 11 lines for the formatting to be correct.  It's also
+# customary to leave one space after the ':' except on otherwise blank lines.
+
+        |-----handy-ruler------------------------------------------------------|
+discount: discount (Markdown to HTML library and tools in C)
+discount:
+discount: Discount is an implementation of John Gruber's Markdown text to
+discount: HTML language written by David Loren Parsons, with extensions
+discount: (tables, fenced code blocks, footnotes, definition lists).
+discount: It provides the libmarkdown library and the 'markdown',
+discount: 'mkd2html' and 'makepage' tools. Okular uses it to show
+discount: Markdown documents.
+discount:
+discount: Homepage: https://www.pell.portland.or.us/~orc/Code/discount/
+discount:
