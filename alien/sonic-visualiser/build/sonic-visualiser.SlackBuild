@@ -191,9 +191,9 @@ popd
 
 # Add a .png file for desktop menu usage instead of relying on the .svg:
 mkdir -p $PKG/usr/share/pixmaps
-convert -background none \
-  $PKG/usr/share/icons/hicolor/scalable/apps/${PRGNAM}.svg \
-  -scale 256 $PKG/usr/share/pixmaps/${PRGNAM}.png
+# rsvg-convert (librsvg): ImageMagick 7 policy blocks SVG input
+rsvg-convert -w 256 -h 256 -o $PKG/usr/share/pixmaps/${PRGNAM}.png \
+  $PKG/usr/share/icons/hicolor/scalable/apps/${PRGNAM}.svg
 
 # Install and fix the .desktop file:
 install -Dm0644 ${PRGNAM}.desktop -t ${PKG}/usr/share/applications/
