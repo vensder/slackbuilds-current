@@ -63,7 +63,8 @@ PKG=$TMP/package-$PRGNAM
 OUTPUT=${OUTPUT:-/tmp}
 
 SOURCE="$SRCDIR/${PRGNAM}-${VERSION}.tar.gz"
-SRCURL="https://code.soundsoftware.ac.uk/attachments/download/2691/${PRGNAM}-${VERSION}.tar.gz"
+# code.soundsoftware.ac.uk is gone; GitHub release tags drop a trailing .0
+SRCURL="https://github.com/vamp-plugins/${PRGNAM}/releases/download/${PRGNAM}-v${VERSION%.0}/${PRGNAM}-${VERSION}.tar.gz"
 
 ##
 ## --- with a little luck, you won't have to edit below this point --- ##
