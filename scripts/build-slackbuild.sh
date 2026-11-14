@@ -467,8 +467,11 @@ process_pkg() {
     echo "Package created: $pkgfile"
 
     # Dependencies are always installed (needed to build the parent)
+    # -f: --reinstall, or upgradepkg skips a package of the same version
+    local -a upg=(--install-new)
+    [ -z "$parent" ] && [ $FORCE -eq 1 ] && upg+=(--reinstall)
     if [ -n "$parent" ] || [ $INSTALL -eq 1 ]; then
-        upgradepkg --install-new "$pkgfile" || return 1
+        upgradepkg "${upg[@]}" "$pkgfile" || return 1
     else
         echo "Install with: upgradepkg --install-new $pkgfile"
     fi
