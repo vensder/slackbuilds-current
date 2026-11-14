@@ -74,7 +74,7 @@ SlackBuild, except git snapshots (tarball only in Alien's build dir).
 | yoshimi | sbo | 2.3.6.5 (SBo: 2.3.2) | top dir `${PRGNAM}_$VERSION`; doc glob `README*` |
 | zynaddsubfx | alien | 3.0.6 | `patches/zynaddsubfx-3.0.6-mxml4.patch` (upstream PR #315, via Gentoo) for mxml 4 |
 | qmmp | alien | 2.4.2 | `SRCURL` moved to `files/qmmp/${VERSION%.*}/` |
-| carla | alien | 2.5.10 (Alien: 20241124 git snapshot) | stable release tarball from GitHub tag, renamed `carla-2.5.10.tar.gz`; built without MinGW-w64/wine |
+| carla | alien | 2.5.10 (Alien: 20241124 git snapshot) | default `VERSION=2.5.10`, `SRCURL` = GitHub tag tarball `v$VERSION` (saved as `carla-2.5.10.tar.gz`), git snapshot only for `VERSION=*git`/`HEAD`; built without MinGW-w64/wine |
 | surge-xt | alien | 1.3.4 | -DSURGE_SKIP_WERROR=ON (bundled LuaJIT/sqlite warnings break -Werror on GCC 16) |
 | calf | vensder | 0.90.9 (Alien: autotools build) | CMake build from GitHub tag tarball; seds for PKGDOCDIR (`config.h.cmake.in`) and gtk.rc `pixmap_path` (`gui/CMakeLists.txt`); `alien/calf` kept unchanged |
 | vaporizer2 | vensder | 3.5.0 (new) | GitHub tag tarball + 6 submodule tarballs at the commits pinned by the tag (`*_COMMIT` vars); LV2/VST3/CLAP in `/usr/lib64/{lv2,vst3,clap}`, data in `/usr/share/Vaporizer2`; `BUILD_AVX=OFF` for non-AVX CPUs. Carla-Rack in Reaper: `ln -s /usr/lib64/lv2/VASTvaporizer2.lv2 ~/.lv2/` |
@@ -153,7 +153,7 @@ su -c "SBDIR=$SBDIR PKGTAG=vensder ./build-slackbuild.sh -q -i <package>"
 Order for lmms: fltk, stk, libgig, portaudio, carla, then lmms.
 
 `alien/.hold` lists packages that `build-slackbuild.sh -a` and `-d` must not
-rebuild (carla: stable 2.5.10 installed, SlackBuild default is a git snapshot).
+rebuild (one name per line, `#` comments).
 
 ## Workflow
 

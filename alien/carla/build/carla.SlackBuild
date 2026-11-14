@@ -45,6 +45,8 @@
 # 20241124_17000e7git-1:
 #              26/jan/2025 by Eric Hameleers <alien@slackware.com>
 #              * Update to 2.6.0-alpha1 to test against zrythm.
+# 2.5.10-1:    local change (slackbuilds-current): stable release 2.5.10
+#              from the GitHub tag tarball, git snapshot only on request.
 # 
 # Run 'sh carla.SlackBuild' to build a Slackware package.
 # The package (.t?z) and .txt file as well as build logs are created in /tmp .
@@ -54,7 +56,7 @@
 
 PRGNAM=carla
 SRCNAM=Carla
-VERSION=${VERSION:-20241124_17000e7git}
+VERSION=${VERSION:-2.5.10}
 BUILD=${BUILD:-1}
 NUMJOBS=${NUMJOBS:-" -j$(nproc) "}
 TAG=${TAG:-alien}
@@ -102,8 +104,12 @@ PKG=$TMP/package-$PRGNAM
 OUTPUT=${OUTPUT:-/tmp}
 
 SOURCE="$SRCDIR/${PRGNAM}-${VERSION}.tar.gz"
-#SRCURL="https://github.com/falkTX/${PRGNAM}/archive/v${VERSION}.tar.gz"
-SRCURL=""
+# Releases: GitHub tag tarball (extracts to Carla-$VERSION); git snapshots
+# (VERSION=YYYYMMDD_<hash>git, HEAD or master) are checked out by src_checkout
+case $VERSION in
+  *git|HEAD|master) SRCURL="" ;;
+  *) SRCURL="https://github.com/falkTX/${SRCNAM}/archive/v${VERSION}.tar.gz" ;;
+esac
 
 # Use the src_checkout() function if no downloadable tarball exists.
 # Check out sources from GIT and create a tarball of them.
