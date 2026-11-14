@@ -6,14 +6,14 @@
 #   BROKEN   ldd reports a library "not found" (e.g. a soname bump: poppler,
 #            icu4c, boost) and no file of that name exists in /lib64,
 #            /usr/lib64 or /opt; the program or plugin no longer loads
-#   UPDATED  a library it links to directly comes from a package that was
+#   UPDATED  (with -u) a library it links to directly comes from a package that was
 #            installed or upgraded after this package (ABI may have changed,
 #            e.g. KF6/Qt6 for okular); rebuild to be safe
 # Read-only: nothing on the system is changed. No root needed.
 #
-# Usage: check-rebuild.sh [-t tree] [-b] [name...]
+# Usage: check-rebuild.sh [-t tree] [-u] [name...]
 #   -t tree  only packages of this tree: alien, vensder or sbo (default: all)
-#   -b       broken only: skip the UPDATED check
+#   -u       also report UPDATED (default: only BROKEN)
 #   name     only these package names (e.g. okular)
 #
 # Environment overrides:
@@ -31,10 +31,10 @@ usage() {
 }
 
 TREE=
-BROKEN_ONLY=0
-while getopts "bt:h" opt; do
+UPDATED=0
+while getopts "t:uh" opt; do
     case $opt in
-        b) BROKEN_ONLY=1 ;;
+        u) UPDATED=1 ;;
         t) TREE=$OPTARG ;;
         *) usage ;;
     esac
@@ -121,7 +121,7 @@ for pkg in "${PKGS[@]}"; do
         [ -n "$lddout" ] || continue
         printf '%s\n' "$lddout" | awk -v p="$pkg" -v f="${elf#/}" \
             '$2 == "=>" && $3 == "not" { print p "\tB\t" f "\t" $1 }' >> "$TMP/rec"
-        [ $BROKEN_ONLY -eq 1 ] && continue
+        [ $UPDATED -eq 0 ] && continue
         # Direct dependencies only (NEEDED), resolved by ldd
         readelf -d "$elf" 2>/dev/null \
             | sed -n 's/.*(NEEDED).*\[\(.*\)\]$/\1/p' > "$TMP/needed"
@@ -151,7 +151,7 @@ if [ -s "$TMP/private" ]; then
 fi
 
 # Owner package of each dependency path (file lists have no leading "/")
-if [ $BROKEN_ONLY -eq 0 ]; then
+if [ $UPDATED -eq 1 ]; then
     awk -F'\t' '$2 == "D" { sub(/^\//, "", $4); print $4 }' "$TMP/rec" \
         | sort -u > "$TMP/deps"
     if [ -s "$TMP/deps" ]; then
@@ -182,7 +182,7 @@ for pkg in "${PKGS[@]}"; do
     [ -n "$broken" ] && out=$broken$'\n'
 
     # UPDATED: owner packages of direct dependencies, newer than this package
-    if [ $BROKEN_ONLY -eq 0 ]; then
+    if [ $UPDATED -eq 1 ]; then
         while IFS= read -r owner; do
             [ -n "$owner" ] || continue
             oname=$(pkg_name "$owner")
@@ -209,8 +209,15 @@ done
 echo
 if [ ${#REBUILD[@]} -eq 0 ]; then
     echo "No rebuilds needed (${#PKGS[@]} package(s) checked)."
-    exit 0
+    status=0
+else
+    echo "Rebuild (${#REBUILD[@]} of ${#PKGS[@]}): ${REBUILD[*]}"
+    printf '  %s\n' "${CMDS[@]}"
+    status=1
 fi
-echo "Rebuild (${#REBUILD[@]} of ${#PKGS[@]}): ${REBUILD[*]}"
-printf '  %s\n' "${CMDS[@]}"
-exit 1
+if [ $UPDATED -eq 0 ]; then
+    echo
+    echo "Only BROKEN packages shown. Add -u to also list packages whose linked"
+    echo "libraries were upgraded after them (UPDATED, rebuild optional)."
+fi
+exit $status
