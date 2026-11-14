@@ -35,6 +35,14 @@ su -c 'scripts/build-slackbuild.sh -t vensder -i calf'
   already in `alien/` or `vensder/` are skipped.
 - `scripts/check-official-overlap.sh` lists installed third-party packages
   that Slackware now ships.
+- `scripts/check-rebuild.sh` (after `slackpkg upgrade-all`, no root needed)
+  lists installed `alien`, `vensder` and `_SBo` packages that need a rebuild:
+  `BROKEN` = ldd reports a library "not found" (soname bump, e.g. poppler);
+  `UPDATED` = a directly linked library comes from a package installed or
+  upgraded after this one (glibc/gcc ignored, `IGNORE_DEPS=...`). Prints the
+  `build-slackbuild.sh -f -i` commands; exit status 1 if something needs a
+  rebuild. `-t tree` limits it to one tree, `-b` reports only `BROKEN`,
+  names limit it to those packages (`scripts/check-rebuild.sh okular`).
 - `scripts/kernel-update.sh -c` lists installed kernel-generic versions,
   checks the mirror for a newer one and prints recommended custom GRUB entries
   (newest via `/boot/vmlinuz` + `/boot/initrd.gz`, older ones versioned).
