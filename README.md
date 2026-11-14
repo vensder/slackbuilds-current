@@ -37,7 +37,8 @@ su -c 'scripts/build-slackbuild.sh -t vensder -i calf'
   that Slackware now ships.
 - `scripts/check-rebuild.sh` (after `slackpkg upgrade-all`, no root needed)
   lists installed `alien`, `vensder` and `_SBo` packages that need a rebuild:
-  `BROKEN` = ldd reports a library "not found" (soname bump, e.g. poppler);
+  `BROKEN` = ldd reports a library "not found" and no file of that name is
+  in /lib64, /usr/lib64 or /opt (soname bump, e.g. poppler);
   `UPDATED` = a directly linked library comes from a package installed or
   upgraded after this one (glibc/gcc ignored, `IGNORE_DEPS=...`). Prints the
   `build-slackbuild.sh -f -i` commands; exit status 1 if something needs a

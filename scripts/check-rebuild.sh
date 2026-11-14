@@ -4,7 +4,8 @@
 # a rebuild after system packages were updated (e.g. slackpkg upgrade-all).
 # For each ELF file in a package's file list:
 #   BROKEN   ldd reports a library "not found" (e.g. a soname bump: poppler,
-#            icu4c, boost); the program or plugin no longer loads
+#            icu4c, boost) and no file of that name exists in /lib64,
+#            /usr/lib64 or /opt; the program or plugin no longer loads
 #   UPDATED  a library it links to directly comes from a package that was
 #            installed or upgraded after this package (ABI may have changed,
 #            e.g. KF6/Qt6 for okular); rebuild to be safe
@@ -134,6 +135,20 @@ for pkg in "${PKGS[@]}"; do
     done < "$TMP/elfs"
 done
 touch "$TMP/rec"
+
+# A "not found" library that exists elsewhere on the system is a private
+# library loaded by the host program (e.g. lmms plugins need libcarlabase.so
+# from /usr/lib64/lmms and Carla's libs from /usr/lib64/carla): not broken.
+# A soname bump leaves no file with the old name.
+awk -F'\t' '$2 == "B" { print $4 }' "$TMP/rec" | sort -u | while IFS= read -r lib; do
+    found=$(find /lib64 /usr/lib64 /opt -name "$lib" -print -quit 2>/dev/null)
+    [ -n "$found" ] && echo "$lib"
+done > "$TMP/private"
+if [ -s "$TMP/private" ]; then
+    awk -F'\t' 'FNR == NR { priv[$0] = 1; next }
+                 !($2 == "B" && ($4 in priv))' "$TMP/private" "$TMP/rec" > "$TMP/rec.new"
+    mv "$TMP/rec.new" "$TMP/rec"
+fi
 
 # Owner package of each dependency path (file lists have no leading "/")
 if [ $BROKEN_ONLY -eq 0 ]; then
