@@ -1,0 +1,268 @@
+#!/bin/sh
+# Copyright 2026  Dmitrii (vensder)
+# Based on Slackware's kde.SlackBuild (cmake/okular, kde.options) and
+# Eric Hameleers' SlackBuild template.
+# All rights reserved.
+#
+#   Permission to use, copy, modify, and distribute this software for
+#   any purpose with or without fee is hereby granted, provided that
+#   the above copyright notice and this permission notice appear in all
+#   copies.
+#
+#   THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+#   WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+#   MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+#   IN NO EVENT SHALL THE AUTHORS AND COPYRIGHT HOLDERS AND THEIR
+#   CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+#   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+#   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+#   USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+#   ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+#   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+#   OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+#   SUCH DAMAGE.
+# -----------------------------------------------------------------------------
+#
+# Slackware SlackBuild script
+# ===========================
+# For:         okular
+# Descr:       KDE document viewer, with the Markdown generator
+# URL:         https://okular.kde.org/
+# Build needs: discount
+# Needs:       discount
+# Changelog:
+# 26.08.3-1:   14/nov/2026
+#              * Slackware's okular build (same cmake options) plus the
+#                Markdown generator: Slackware builds it with
+#                FORCE_NOT_REQUIRED_DEPENDENCIES=Discount and no discount,
+#                so .md files open as plain text.
+#
+# VERSION must match the installed KDE Gear release (okular is part of it);
+# rebuild after Slackware updates KDE Gear, KF6 or poppler.
+#
+# Run 'sh okular.SlackBuild' to build a Slackware package.
+# The package (.t?z) and .txt file as well as build logs are created in /tmp .
+# Install the package using 'installpkg' or 'upgradepkg --install-new'.
+#
+# -----------------------------------------------------------------------------
+
+PRGNAM=okular
+VERSION=${VERSION:-26.08.3}
+BUILD=${BUILD:-1}
+NUMJOBS=${NUMJOBS:-" -j$(nproc) "}
+TAG=${TAG:-vensder}
+
+DOCS="AUTHORS* CONTRIBUTING* COPYING* LICENSE* README*"
+
+# Where do we look for sources?
+SRCDIR=$(cd $(dirname $0); pwd)
+
+# Place to build (TMP) package (PKG) and output (OUTPUT) the program:
+TMP=${TMP:-/tmp/build}
+PKG=$TMP/package-$PRGNAM
+OUTPUT=${OUTPUT:-/tmp}
+
+# The KDE Gear release tarball (same one Slackware uses):
+SOURCE[0]="$SRCDIR/${PRGNAM}-${VERSION}.tar.xz"
+SRCURL[0]="https://download.kde.org/stable/release-service/${VERSION}/src/${PRGNAM}-${VERSION}.tar.xz"
+
+##
+## --- with a little luck, you won't have to edit below this point --- ##
+##
+
+# Automatically determine the architecture we're building on:
+if [ -z "$ARCH" ]; then
+  case "$(uname -m)" in
+    i?86) ARCH=i686 ;;
+    arm*) ARCH=arm ;;
+    # Unless $ARCH is already set, use uname -m for all other archs:
+    *) ARCH=$(uname -m) ;;
+  esac
+  export ARCH
+fi
+# Set CFLAGS/CXXFLAGS and LIBDIRSUFFIX (as in Slackware's kde.options):
+case "$ARCH" in
+  i686)      SLKCFLAGS="-O2 -march=pentium4 -mtune=generic"
+             LIBDIRSUFFIX=""
+             ;;
+  x86_64)    SLKCFLAGS="-O2 -march=x86-64 -mtune=generic -fPIC"
+             LIBDIRSUFFIX="64"
+             ;;
+  aarch64)   SLKCFLAGS="-O2 -fPIC"
+             LIBDIRSUFFIX="64"
+             ;;
+  *)         SLKCFLAGS=${SLKCFLAGS:-"-O2"}
+             LIBDIRSUFFIX=${LIBDIRSUFFIX:-""}
+             ;;
+esac
+
+# Exit the script on errors:
+set -e
+set -o pipefail
+trap 'echo "$0 FAILED at line ${LINENO}" | tee $OUTPUT/error-${PRGNAM}.log' ERR
+# Catch unitialized variables:
+set -u
+P1=${1:-1}
+
+# Save old umask and set to 0022:
+_UMASK_=$(umask)
+umask 0022
+
+# Create working directories:
+mkdir -p $OUTPUT          # place for the package to be saved
+mkdir -p $TMP/tmp-$PRGNAM # location to build the source
+mkdir -p $PKG             # place for the package to be built
+rm -rf $PKG/*             # always erase old package's contents
+rm -rf $TMP/tmp-$PRGNAM/* # remove the remnants of previous build
+rm -rf $OUTPUT/{configure,make,install,error,makepkg,patch}-$PRGNAM.log
+                          # remove old log files
+
+# Source file availability:
+for (( i = 0; i < ${#SOURCE[*]}; i++ )) ; do
+  if ! [ -f ${SOURCE[$i]} ]; then
+    echo "Source '$(basename ${SOURCE[$i]})' not available yet..."
+    # Check if the $SRCDIR is writable at all - if not, download to $OUTPUT
+    [ -w "$SRCDIR" ] || SOURCE[$i]="$OUTPUT/$(basename ${SOURCE[$i]})"
+    if [ -f ${SOURCE[$i]} ]; then echo "Ah, found it!"; continue; fi
+    if ! [ "x${SRCURL[$i]}" == "x" ]; then
+      echo "Will download file to $(dirname $SOURCE[$i])"
+      wget -nv -T 20 -O "${SOURCE[$i]}" "${SRCURL[$i]}" || true
+      if [ ! -s "${SOURCE[$i]}" ]; then
+        echo "Fail to download '$(basename ${SOURCE[$i]})'. Aborting the build."
+        mv -f "${SOURCE[$i]}" "${SOURCE[$i]}".FAIL
+        exit 1
+      fi
+    fi
+    if [ ! -f "${SOURCE[$i]}" -o ! -s "${SOURCE[$i]}" ]; then
+      echo "File '$(basename ${SOURCE[$i]})' not available. Aborting the build."
+      exit 1
+    fi
+  fi
+done
+
+if [ "$P1" == "--download" ]; then
+  echo "Download complete."
+  exit 0
+fi
+
+# --- PACKAGE BUILDING ---
+
+echo "++"
+echo "|| $PRGNAM-$VERSION"
+echo "++"
+
+cd $TMP/tmp-$PRGNAM
+echo "Extracting the source archive(s) for $PRGNAM..."
+for (( i = 0; i < ${#SOURCE[*]}; i++ )) ; do
+  tar -xf ${SOURCE[$i]}
+done
+cd ${PRGNAM}-${VERSION}
+
+chown -R root:root .
+chmod -R u+w,go+r-w,a+rX-st .
+
+echo Building ...
+
+# Slackware's KDE_BUILD_ARGS, KDE_QT6_ARGS and KDE_OPT_ARGS; unlike
+# Slackware's cmake/okular there is no -DFORCE_NOT_REQUIRED_DEPENDENCIES=Discount,
+# so cmake fails if discount (pkg-config libmarkdown) is missing:
+cmake -S $(pwd) -B build-${PRGNAM} \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_FLAGS:STRING="$SLKCFLAGS" \
+  -DCMAKE_C_FLAGS_RELEASE:STRING="$SLKCFLAGS" \
+  -DCMAKE_CXX_FLAGS:STRING="$SLKCFLAGS" \
+  -DCMAKE_CXX_FLAGS_RELEASE:STRING="$SLKCFLAGS" \
+  -DCMAKE_INSTALL_PREFIX=/usr \
+  -DCMAKE_INSTALL_LIBDIR=lib$LIBDIRSUFFIX \
+  -DKDE_INSTALL_LIBDIR=lib$LIBDIRSUFFIX \
+  -DCMAKE_INSTALL_MANDIR=/usr/man \
+  -DKDE_INSTALL_MANDIR=/usr/man \
+  -DMAN_INSTALL_DIR=/usr/man \
+  -DCMAKE_INSTALL_SYSCONFDIR=/etc \
+  -DKDE_INSTALL_SYSCONFDIR=/etc \
+  -DCMAKE_INSTALL_LIBEXECDIR=/usr/libexec \
+  -DKDE_INSTALL_LIBEXECDIR=/usr/libexec \
+  -DKDE_INSTALL_USE_QT_SYS_PATHS=ON \
+  -DLIB_SUFFIX=${LIBDIRSUFFIX} \
+  -DBUILD_PYTHON_BINDINGS=OFF \
+  -DBUILD_SHARED_LIBS=ON \
+  -DPYTHON_EXECUTABLE=/usr/bin/python3 \
+  -DQT_MAJOR_VERSION=6 \
+  -DQT_VERSION_MAJOR=6 \
+  -DBUILD_WITH_QT6:BOOL=ON \
+  -DBUILD_QT6:BOOL=ON \
+  -DUSE_QT6=ON \
+  -DBUILD_QT5:BOOL=OFF \
+  -DQT_PLUGINS_DIR=lib$LIBDIRSUFFIX/qt6/plugins \
+  -DQT_PLUGIN_INSTALL_DIR=lib$LIBDIRSUFFIX/qt6/plugins \
+  -DQML_INSTALL_DIR=lib$LIBDIRSUFFIX/qt6/qml \
+  -DBUILD_TESTING=OFF \
+  -DKDE_PLATFORM_FEATURE_DISABLE_DEPRECATED=TRUE \
+  -Wno-dev \
+  2>&1 | tee $OUTPUT/configure-${PRGNAM}.log
+cmake --build build-${PRGNAM} $NUMJOBS \
+  2>&1 | tee $OUTPUT/make-${PRGNAM}.log
+DESTDIR=$PKG cmake --install build-${PRGNAM} \
+  2>&1 | tee $OUTPUT/install-${PRGNAM}.log
+
+# Fail here if the Markdown generator was not built:
+if [ -z "$(find $PKG -name 'okularGenerator_md.so')" ]; then
+  echo "okularGenerator_md.so not built (discount not found?). Aborting."
+  exit 1
+fi
+
+# Move docs from /usr/share/doc like kde.SlackBuild does:
+if [ -d $PKG/usr/share/doc ]; then
+  mkdir -p $PKG/usr/doc
+  mv $PKG/usr/share/doc/* $PKG/usr/doc
+  rmdir $PKG/usr/share/doc
+fi
+
+# Add this to the doinst.sh (Slackware's doinst.sh/okular):
+mkdir -p $PKG/install
+cat <<EOINS >> $PKG/install/doinst.sh
+if [ -x /usr/bin/update-desktop-database ]; then
+  /usr/bin/update-desktop-database /usr/share/applications >/dev/null 2>&1
+fi
+EOINS
+
+# Add documentation:
+mkdir -p $PKG/usr/doc/$PRGNAM-$VERSION
+cp -a $DOCS $PKG/usr/doc/$PRGNAM-$VERSION 2>/dev/null || true
+cat $SRCDIR/slack-required > $PKG/usr/doc/$PRGNAM-$VERSION/slack-required
+cat $SRCDIR/$(basename $0) > $PKG/usr/doc/$PRGNAM-$VERSION/$PRGNAM.SlackBuild
+chown -R root:root $PKG/usr/doc/$PRGNAM-$VERSION
+find $PKG/usr/doc -type d -exec chmod 755 {} \;
+find $PKG/usr/doc -type f -exec chmod 644 {} \;
+
+# Compress the man page(s):
+if [ -d $PKG/usr/man ]; then
+  find $PKG/usr/man -type f -name "*.?" -exec gzip -9f {} \;
+  for i in $(find $PKG/usr/man -type l -name "*.?") ; do ln -s $( readlink $i ).gz $i.gz ; rm $i ; done
+fi
+
+# Strip binaries and remove rpaths (as kde.SlackBuild does):
+for f in $(find $PKG | xargs file | grep -e "executable" -e "shared object" \
+    | grep ELF | cut -f 1 -d :) ; do
+  strip --strip-unneeded $f 2> /dev/null || true
+  if [ -n "$(patchelf --print-rpath $f 2> /dev/null)" ]; then
+    patchelf --remove-rpath $f
+  fi
+done
+
+# Add a package description:
+mkdir -p $PKG/install
+cat $SRCDIR/slack-desc > $PKG/install/slack-desc
+cat $SRCDIR/slack-required > $PKG/install/slack-required
+
+# Build the package:
+cd $PKG
+makepkg --linkadd y --chown n $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz} 2>&1 | tee $OUTPUT/makepkg-${PRGNAM}.log
+cd $OUTPUT
+md5sum ${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz} > ${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz}.md5
+cd -
+cat $PKG/install/slack-desc | grep "^${PRGNAM}" > $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.txt
+cat $PKG/install/slack-required > $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.dep
+
+# Restore the original umask:
+umask ${_UMASK_}
