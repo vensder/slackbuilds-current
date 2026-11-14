@@ -157,8 +157,13 @@ sb_eval_var() {
 
 # Default VERSION of SlackBuild $1, with variables resolved, e.g.
 # VERSION=${VERSION:-${MINGW}_gcc${GCC}} -> v11.0.0_gcc13.1.0
+# Some Alien SlackBuilds set VERSION=${VERSION:-""} and pick it later from
+# VERSION_CUR (-current) or VERSION_150 (15.0): use VERSION_CUR then.
 sb_version() {
-    sb_eval_var "$1" VERSION ""
+    local v
+    v=$(sb_eval_var "$1" VERSION "")
+    [ -n "$v" ] || v=$(sb_eval_var "$1" VERSION_CUR "")
+    printf '%s\n' "$v"
 }
 
 # SRCURL from SlackBuild $1, with @VERSION@ in place of the version
