@@ -56,6 +56,15 @@ su -c 'scripts/build-slackbuild.sh -t vensder -i calf'
   It asks: remove all, one by one, or nothing; `-d 7.2.11 7.2.12` offers only
   those versions.
   Steps: `README-slackware-current-kernel-update.md` in `slackware-notes`.
+- `scripts/clean-build.sh` shows free disk space and the size of build
+  leftovers: `/tmp/build/*` (alien, vensder), `/tmp/SBo/*` (sbo) and
+  Slackware-style `/tmp/package-*` and `/tmp/<pkg>-<ver>` dirs (`<pkg>` = a
+  SlackBuild in this repo). Dry run by default; `su -c 'scripts/clean-build.sh -y'`
+  deletes them (refused while a SlackBuild is running). `-p` adds built
+  packages in `/tmp` that are installed or have another version installed,
+  and build logs. Nothing else in `/tmp` is touched.
+  `build-slackbuild.sh -C` removes a package's build dirs right after a
+  successful build (kept on failure for debugging).
 
 Guides are in the `slackware-notes` repo:
 `README-alien-slackbuilds-scripts.md`, `README-sbo-custom-slackbuilds.md`.

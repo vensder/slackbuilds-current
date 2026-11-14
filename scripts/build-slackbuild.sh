@@ -5,8 +5,8 @@
 #   vensder/<package>/build/  (own SlackBuilds)
 #   sbo/<package>/            (SlackBuilds.org; source downloaded from .info)
 #
-# Usage: build-slackbuild.sh [-t tree] [-cdfinqv] [-V version] <package>
-#        build-slackbuild.sh [-t tree] -a [-cdfinqv]
+# Usage: build-slackbuild.sh [-t tree] [-cCdfinqv] [-V version] <package>
+#        build-slackbuild.sh [-t tree] -a [-cCdfinqv]
 
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 REPO_DIR=$(dirname "$SCRIPT_DIR")
@@ -18,14 +18,17 @@ PKGDB=${PKGDB:-/var/lib/pkgtools/packages}
 
 usage() {
     cat <<EOF
-Usage: $0 [-t tree] [-cdfinqv] [-V version] <package>
-       $0 [-t tree] -a [-cdfinqv]
+Usage: $0 [-t tree] [-cCdfinqv] [-V version] <package>
+       $0 [-t tree] -a [-cCdfinqv]
   -t tree     SlackBuild tree: alien (default), vensder or sbo
               ($REPO_DIR/<tree>; without -t, SBDIR=... overrides it)
   -a          all installed packages with the tree's build tag
               (alien, vensder, _SBo; override with PKGTAG=...) instead of <package>;
               -a -c checks them all, -a -n -i upgrades them to newest upstream
   -c          check only: show versions (incl. upstream), do not build
+  -C          clean up after each successful build: remove the package's
+              build dirs (\$TMP/tmp-<pkg>, \$TMP/<pkg>-<version>,
+              \$TMP/package-<pkg>); kept when the build fails
   -d          also process dependencies from slack-required, recursively;
               missing or outdated dependencies are built and installed first
   -f          rebuild <package> even if this version is already installed
@@ -48,6 +51,7 @@ EOF
 
 ALL=0
 CHECK_ONLY=0
+CLEAN=0
 DEPS=0
 FORCE=0
 INSTALL=0
@@ -57,10 +61,11 @@ VERBOSE=0
 USER_VER=
 TREE=alien
 TREE_SET=0
-while getopts "acdfinqt:vV:h" opt; do
+while getopts "acCdfinqt:vV:h" opt; do
     case $opt in
         a) ALL=1 ;;
         c) CHECK_ONLY=1 ;;
+        C) CLEAN=1 ;;
         d) DEPS=1 ;;
         f) FORCE=1 ;;
         i) INSTALL=1 ;;
@@ -273,6 +278,24 @@ find_build_dir() {
     return 1
 }
 
+# Remove the build dirs of SlackBuild $1 (package $2, version $3) after a
+# successful build. TMP and PKG come from the SlackBuild itself (Alien:
+# /tmp/build, SBo: /tmp/SBo, Slackware-style: /tmp).
+clean_build_dirs() {
+    local sb=$1 name=$2 ver=$3 tmp pkgdir d
+    tmp=$(sb_eval_var "$sb" TMP "$ver")
+    pkgdir=$(sb_eval_var "$sb" PKG "$ver")
+    [ -n "$tmp" ] || return 0
+    for d in "$tmp/tmp-$name" "$tmp/$name-$ver" "$pkgdir"; do
+        # only a subdir of TMP, never TMP itself (or / when PKG is unset)
+        case $d in "$tmp"/?*) ;; *) continue ;; esac
+        if [ -d "$d" ]; then
+            echo "Removing build dir: $d"
+            rm -rf -- "$d"
+        fi
+    done
+}
+
 # Latest stable version from the source site of a SRCURL template
 latest_upstream() {
     local tpl=$1 file pre suf path
@@ -482,6 +505,7 @@ process_pkg() {
         return 1
     fi
     echo "Package created: $pkgfile"
+    [ $CLEAN -eq 1 ] && clean_build_dirs "$sb_file" "$prgnam" "$target"
 
     # Dependencies are always installed (needed to build the parent)
     # -f: --reinstall, or upgradepkg skips a package of the same version
