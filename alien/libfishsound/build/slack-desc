@@ -1,0 +1,19 @@
+# HOW TO EDIT THIS FILE:
+# The "handy ruler" below makes it easier to edit a package description.  Line
+# up the first '|' above the ':' following the base package name, and the '|'
+# on the right side marks the last column you can put a character in.  You must
+# make exactly 11 lines for the formatting to be correct.  It's also
+# customary to leave one space after the ':' except on otherwise blank lines.
+
+            |-----handy-ruler------------------------------------------------------|
+libfishsound: libfishsound (simple programming interface to Xiph audio codecs)
+libfishsound:
+libfishsound: libfishsound provides a simple programming interface for decoding
+libfishsound: and encoding audio data using the Xiph.org codecs
+libfishsound: (FLAC, Speex and Vorbis).
+libfishsound: libfishsound by itself is designed to handle raw codec streams from
+libfishsound: a lower level layer such as UDP datagrams. libfishsound is a wrapper
+libfishsound: around the existing codec libraries and provides a consistent,
+libfishsound: higher-level programming interface. 
+libfishsound:
+libfishsound: libfishsound home: https://www.xiph.org/fishsound/

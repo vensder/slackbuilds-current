@@ -1,0 +1,39 @@
+From: Petter Reinholdtsen <pere@hungry.com>
+Date: Tue, 21 Oct 2014 15:14:47 +0200
+Subject: Patch configure.ac to specify config macro dir.
+
+Author: Dimitri John Ledkov <xnox@ubuntu.com> and
+        Petter Reinholdtsen <pere@hungry.com>
+Last-Update: 2014-10-21
+
+Patch fetched from ubuntu to use m4/ as the autoconf macro directory.
+---
+ Makefile.am  | 2 ++
+ configure.ac | 1 +
+ 2 files changed, 3 insertions(+)
+
+diff --git a/Makefile.am b/Makefile.am
+index e4d735a..b18097e 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -31,6 +31,8 @@
+ 
+ DISTCHECK_CONFIGURE_FLAGS = --enable-gcc-werror
+ 
++ACLOCAL_AMFLAGS = -I m4
++
+ SUBDIRS = doc include src
+ 
+ EXTRA_DIST = fishsound.pc.in README.win32 \
+diff --git a/configure.ac b/configure.ac
+index 206094c..8e657a5 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -40,6 +40,7 @@ AC_C_CONST
+ AC_C_BIGENDIAN
+ 
+ dnl Add parameters for aclocal
++AC_CONFIG_MACRO_DIR([m4])
+ AC_SUBST(ACLOCAL_AMFLAGS, "-I m4")
+ 
+ # Checks for header files.

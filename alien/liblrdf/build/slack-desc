@@ -1,0 +1,19 @@
+# HOW TO EDIT THIS FILE:
+# The "handy ruler" below makes it easier to edit a package description.  Line
+# up the first '|' above the ':' following the base package name, and the '|'
+# on the right side marks the last column you can put a character in.  You must
+# make exactly 11 lines for the formatting to be correct.  It's also
+# customary to leave one space after the ':' except on otherwise blank lines.
+
+       |-----handy-ruler------------------------------------------------------|
+liblrdf: liblrdf (lightweight RDF library to access LADSPA plugin metadata)
+liblrdf:
+liblrdf: liblrdf is a library to make it easy to manipulate RDF files
+liblrdf: describing LADSPA plugins.
+liblrdf: It can also be used for general RDF manipulation. It can read
+liblrdf: RDF/XLM and N3 files and export N3 files.
+liblrdf: It also has a light taxonomic inference capablility.
+liblrdf:
+liblrdf:
+liblrdf: More info: https://github.com/swh/LRDF
+liblrdf:
