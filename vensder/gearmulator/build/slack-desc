@@ -1,0 +1,19 @@
+# HOW TO EDIT THIS FILE:
+# The "handy ruler" below makes it easier to edit a package description.  Line
+# up the first '|' above the ':' following the base package name, and the '|'
+# on the right side marks the last column you can put a character in.  You must
+# make exactly 11 lines for the formatting to be correct.  It's also
+# customary to leave one space after the ':' except on otherwise blank lines.
+
+           |-----handy-ruler------------------------------------------------------|
+gearmulator: gearmulator (low level emulation of classic VA synthesizers)
+gearmulator:
+gearmulator: Runs the original firmware ROMs of Access Virus A/B/C (Osirus) and
+gearmulator: TI (OsTIrus), Waldorf microQ (Vavra) and Microwave II/XT (Xenia),
+gearmulator: Clavia Nord Lead 2x (Nodal Red 2x), Roland JP-8000 (JE-8086) and
+gearmulator: Roland MT-32/Sound Canvas (88emu) on emulated chips.
+gearmulator: Standalones, LV2, VST2, VST3 and CLAP plugins, DSPBridge server.
+gearmulator: ROMs are not included.
+gearmulator:
+gearmulator: gearmulator home: https://github.com/dsp56300/gearmulator
+gearmulator:

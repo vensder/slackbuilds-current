@@ -1,0 +1,259 @@
+#!/bin/sh
+# Copyright 2026  Dmitrii (vensder)
+# Based on Eric Hameleers' SlackBuild template.
+# All rights reserved.
+#
+#   Permission to use, copy, modify, and distribute this software for
+#   any purpose with or without fee is hereby granted, provided that
+#   the above copyright notice and this permission notice appear in all
+#   copies.
+#
+#   THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+#   WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+#   MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+#   IN NO EVENT SHALL THE AUTHORS AND COPYRIGHT HOLDERS AND THEIR
+#   CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+#   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+#   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+#   USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+#   ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+#   OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+#   OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+#   SUCH DAMAGE.
+# -----------------------------------------------------------------------------
+#
+# Slackware SlackBuild script
+# ===========================
+# For:         gearmulator
+# Descr:       Emulation of classic VA synths (standalone, LV2, VST2, VST3, CLAP)
+# URL:         https://github.com/dsp56300/gearmulator
+# Build needs: cmake, git, alsa-lib, X11 libs, mesa
+# Needs:       - (the firmware ROMs of the emulated devices, not included)
+# Changelog:
+# 2.2.27-1:    15/nov/2026
+#              * Initial build from the 2.2.27 tag. The tag is cloned with
+#                its submodules (JUCE, clap-juce-extensions, RmlUi, ...)
+#                and packed into gearmulator-<version>.tar.gz next to this
+#                script (GitHub tag tarballs lack the submodules).
+#              * All synths, JUCE plugins with LV2 and CLAP, the DSPBridge
+#                server; no FX variants, no TUS plugin manager (it
+#                downloads and installs plugins itself).
+#              * Standalones on: needed for 88emu (88emuPlayer, its only
+#                frontend), and the other synths get one too. JACK enabled
+#                in them by sed (upstream builds them ALSA only).
+#              * Upstream already builds without LTO on GCC.
+#              * set -o pipefail.
+#
+# Run 'sh gearmulator.SlackBuild' to build a Slackware package.
+# The package (.t?z) and .txt file as well as build logs are created in /tmp .
+# Install the package using 'installpkg' or 'upgradepkg --install-new'.
+#
+# -----------------------------------------------------------------------------
+
+PRGNAM=gearmulator
+VERSION=${VERSION:-2.2.27}
+BUILD=${BUILD:-1}
+NUMJOBS=${NUMJOBS:-" -j$(nproc) "}
+TAG=${TAG:-vensder}
+
+DOCS="LICENSE.md README.md doc/changelog.txt doc/88emu_readme.md doc/skin_authoring.md"
+GITURL=https://github.com/dsp56300/gearmulator.git
+
+# Where do we look for sources?
+SRCDIR=$(cd $(dirname $0); pwd)
+
+# Place to build (TMP) package (PKG) and output (OUTPUT) the program:
+TMP=${TMP:-/tmp/build}
+PKG=$TMP/package-$PRGNAM
+OUTPUT=${OUTPUT:-/tmp}
+
+# Made from a recursive clone of the tag; unpacks to gearmulator-$VERSION/ :
+SOURCE="$SRCDIR/${PRGNAM}-${VERSION}.tar.gz"
+
+##
+## --- with a little luck, you won't have to edit below this point --- ##
+##
+# Automatically determine the architecture we're building on:
+if [ -z "$ARCH" ]; then
+  case "$(uname -m)" in
+    i?86) ARCH=i586 ;;
+    arm*) readelf /usr/bin/file -A | egrep -q "Tag_CPU.*[4,5]" && ARCH=arm || ARCH=armv7hl ;;
+    # Unless $ARCH is already set, use uname -m for all other archs:
+    *) ARCH=$(uname -m) ;;
+  esac
+  export ARCH
+fi
+# Set CFLAGS/CXXFLAGS and LIBDIRSUFFIX:
+case "$ARCH" in
+  i?86)      SLKCFLAGS="-O2 -march=${ARCH} -mtune=i686"
+             SLKLDFLAGS=""; LIBDIRSUFFIX=""
+             ;;
+  x86_64)    SLKCFLAGS="-O2 -fPIC"
+             SLKLDFLAGS="-L/usr/lib64"; LIBDIRSUFFIX="64"
+             ;;
+  armv7hl)   SLKCFLAGS="-O2 -march=armv7-a -mfpu=vfpv3-d16"
+             SLKLDFLAGS=""; LIBDIRSUFFIX=""
+             ;;
+  *)         SLKCFLAGS=${SLKCFLAGS:-"-O2"}
+             SLKLDFLAGS=${SLKLDFLAGS:-""}; LIBDIRSUFFIX=${LIBDIRSUFFIX:-""}
+             ;;
+esac
+
+case "$ARCH" in
+    arm*)    TARGET=$ARCH-slackware-linux-gnueabi ;;
+    *)       TARGET=$ARCH-slackware-linux ;;
+esac
+
+# Exit the script on errors:
+set -e
+# Fail when cmake fails, not only when tee does:
+set -o pipefail
+trap 'echo "$0 FAILED at line ${LINENO}" | tee $OUTPUT/error-${PRGNAM}.log' ERR
+# Catch unitialized variables:
+set -u
+P1=${1:-1}
+
+# Save old umask and set to 0022:
+_UMASK_=$(umask)
+umask 0022
+
+# Create working directories:
+mkdir -p $OUTPUT          # place for the package to be saved
+mkdir -p $TMP/tmp-$PRGNAM # location to build the source
+mkdir -p $PKG             # place for the package to be built
+rm -rf $PKG/*             # always erase old package's contents
+rm -rf $TMP/tmp-$PRGNAM/* # remove the remnants of previous build
+rm -rf $OUTPUT/{configure,make,install,error,makepkg,patch}-$PRGNAM.log
+                          # remove old log files
+
+# Source file availability:
+if ! [ -f $SOURCE ]; then
+  echo "Source '$(basename $SOURCE)' not available yet..."
+  # Check if the $SRCDIR is writable at all - if not, save to $OUTPUT
+  [ -w "$SRCDIR" ] || SOURCE="$OUTPUT/$(basename $SOURCE)"
+fi
+if ! [ -f $SOURCE ]; then
+  echo "Cloning tag $VERSION with submodules..."
+  rm -rf $TMP/git-$PRGNAM
+  mkdir -p $TMP/git-$PRGNAM
+  git clone --depth 1 --branch $VERSION --recursive --shallow-submodules \
+    $GITURL $TMP/git-$PRGNAM/${PRGNAM}-${VERSION}
+  tar -czf $SOURCE --exclude=.git -C $TMP/git-$PRGNAM ${PRGNAM}-${VERSION}
+  rm -rf $TMP/git-$PRGNAM
+fi
+
+if [ "$P1" == "--download" ]; then
+  echo "Download complete."
+  exit 0
+fi
+
+# --- PACKAGE BUILDING ---
+
+echo "++"
+echo "|| $PRGNAM-$VERSION"
+echo "++"
+
+cd $TMP/tmp-$PRGNAM
+echo "Extracting the source archive for $PRGNAM..."
+tar -xf $SOURCE
+cd ${PRGNAM}-${VERSION}
+
+chown -R root:root .
+chmod -R u+w,go+r-w,a+rX-st .
+
+# JACK in the standalones (JUCE loads libjack at run time):
+sed -i source/cmake/juce.cmake \
+  -e '/^\tJUCE_USE_CURL=0 /a\\tJUCE_JACK=1'
+grep -q 'JUCE_JACK=1' source/cmake/juce.cmake
+
+# The build runs the new plugins to write the VST3 moduleinfo.json; keep the
+# data folder they create out of /root:
+export TUS_DATA_FOLDER=$TMP/tmp-$PRGNAM/tus-data
+
+echo Building ...
+
+# Upstream adds its own -Ofast release flags (base.cmake) and turns LTO off
+# for GCC. The products land in bin/plugins/Release/ of the source tree, the
+# install rules are for cpack (lib/ not lib64/, docs in the prefix root), so
+# the files are copied below instead.
+cmake -S $(pwd) -B build-${PRGNAM} \
+  -DCMAKE_C_FLAGS:STRING="$SLKCFLAGS" \
+  -DCMAKE_CXX_FLAGS:STRING="$SLKCFLAGS" \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_TESTING=OFF \
+  -Dgearmulator_BUILD_JUCEPLUGIN=ON \
+  -Dgearmulator_BUILD_JUCEPLUGIN_CLAP=ON \
+  -Dgearmulator_BUILD_JUCEPLUGIN_LV2=ON \
+  -Dgearmulator_BUILD_JUCEPLUGIN_VST2=ON \
+  -Dgearmulator_BUILD_JUCEPLUGIN_VST3=ON \
+  -Dgearmulator_BUILD_JUCEPLUGIN_Standalone=ON \
+  -Dgearmulator_BUILD_FX_PLUGIN=OFF \
+  -Dgearmulator_BUILD_INSTALLER=OFF \
+  -Dgearmulator_SYNTH_OSIRUS=ON \
+  -Dgearmulator_SYNTH_OSTIRUS=ON \
+  -Dgearmulator_SYNTH_VAVRA=ON \
+  -Dgearmulator_SYNTH_XENIA=ON \
+  -Dgearmulator_SYNTH_NODALRED2X=ON \
+  -Dgearmulator_SYNTH_JE8086=ON \
+  -Dgearmulator_SYNTH_88EMU=ON \
+  -Dgearmulator_COMPONENT_DSPBRIDGE=ON \
+  2>&1 | tee $OUTPUT/configure-${PRGNAM}.log
+cmake --build build-${PRGNAM} $NUMJOBS 2>&1 | tee $OUTPUT/make-${PRGNAM}.log
+
+ART=bin/plugins/Release
+
+# Plugins into /usr/lib64/{lv2,vst,vst3,clap}. Carla-Rack in Reaper only
+# scans ~/.lv2 and /usr/lib/lv2, so link them there with:
+#   ln -s /usr/lib64/lv2/{Osirus,OsTIrus,Vavra,Xenia,NodalRed2x,JE8086}.lv2 ~/.lv2/
+mkdir -p $PKG/usr/lib${LIBDIRSUFFIX}/{lv2,vst,vst3,clap}
+cp -a $ART/LV2/*.lv2 $PKG/usr/lib${LIBDIRSUFFIX}/lv2/
+cp -a $ART/VST3/*.vst3 $PKG/usr/lib${LIBDIRSUFFIX}/vst3/
+install -m0755 $ART/VST/*.so $PKG/usr/lib${LIBDIRSUFFIX}/vst/
+install -m0755 $ART/CLAP/*.clap $PKG/usr/lib${LIBDIRSUFFIX}/clap/
+
+# Standalones (Osirus, OsTIrus, Vavra, Xenia, NodalRed2x, JE8086,
+# 88emuPlayer) and the 88emu offline renderer 88EmuCli:
+mkdir -p $PKG/usr/bin
+install -m0755 $ART/Standalone/* $ART/88EmuCli $PKG/usr/bin/
+
+# DSPBridge server: it loads its device plugins from plugins/ next to its
+# own binary, so it lives in /usr/lib64/gearmulator with a wrapper in bin:
+mkdir -p $PKG/usr/lib${LIBDIRSUFFIX}/${PRGNAM}/plugins
+SERVER=build-${PRGNAM}/source/framework/tools/bridge/server
+install -m0755 $SERVER/dsp56300EmuServer $PKG/usr/lib${LIBDIRSUFFIX}/${PRGNAM}/
+install -m0755 $SERVER/plugins/*.so $PKG/usr/lib${LIBDIRSUFFIX}/${PRGNAM}/plugins/
+cat > $PKG/usr/bin/dsp56300EmuServer <<EOF
+#!/bin/sh
+exec /usr/lib${LIBDIRSUFFIX}/${PRGNAM}/dsp56300EmuServer "\$@"
+EOF
+chmod 0755 $PKG/usr/bin/dsp56300EmuServer
+
+# Add documentation:
+mkdir -p $PKG/usr/doc/$PRGNAM-$VERSION
+cp -a $DOCS $PKG/usr/doc/$PRGNAM-$VERSION || true
+cat $SRCDIR/slack-required > $PKG/usr/doc/$PRGNAM-$VERSION/slack-required
+cat $SRCDIR/$(basename $0) > $PKG/usr/doc/$PRGNAM-$VERSION/$PRGNAM.SlackBuild
+chown -R root:root $PKG/usr/doc/$PRGNAM-$VERSION
+find $PKG/usr/doc -type d -exec chmod 755 {} \;
+find $PKG/usr/doc -type f -exec chmod 644 {} \;
+
+# Strip binaries:
+find $PKG/usr/bin $PKG/usr/lib${LIBDIRSUFFIX} -type f | xargs file | grep -e "executable" -e "shared object" | grep ELF \
+  | cut -f 1 -d : | xargs strip --strip-unneeded 2> /dev/null || true
+
+# Add a package description:
+mkdir -p $PKG/install
+cat $SRCDIR/slack-desc > $PKG/install/slack-desc
+cat $SRCDIR/slack-required > $PKG/install/slack-required
+
+# Build the package:
+cd $PKG
+makepkg --linkadd y --chown n $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz} 2>&1 | tee $OUTPUT/makepkg-${PRGNAM}.log
+cd $OUTPUT
+md5sum ${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz} > ${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.${PKGTYPE:-txz}.md5
+cd -
+cat $PKG/install/slack-desc | grep "^${PRGNAM}" > $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.txt
+cat $PKG/install/slack-required > $OUTPUT/${PRGNAM}-${VERSION}-${ARCH}-${BUILD}${TAG}.dep
+
+# Restore the original umask:
+umask ${_UMASK_}
