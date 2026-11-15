@@ -43,6 +43,8 @@
 #                in them by sed (upstream builds them ALSA only).
 #              * Upstream already builds without LTO on GCC.
 #              * set -o pipefail.
+#              * -include cstdint in CXXFLAGS (GCC 16: uint32_t not declared
+#                in juceRmlUi/rmlTreeNode.h).
 #
 # Run 'sh gearmulator.SlackBuild' to build a Slackware package.
 # The package (.t?z) and .txt file as well as build logs are created in /tmp .
@@ -173,12 +175,13 @@ export TUS_DATA_FOLDER=$TMP/tmp-$PRGNAM/tus-data
 echo Building ...
 
 # Upstream adds its own -Ofast release flags (base.cmake) and turns LTO off
-# for GCC. The products land in bin/plugins/Release/ of the source tree, the
+# for GCC. '-include cstdint': GCC 16 no longer pulls <cstdint> in through
+# other headers (rmlTreeNode.h and maybe more use uint32_t without it). The products land in bin/plugins/Release/ of the source tree, the
 # install rules are for cpack (lib/ not lib64/, docs in the prefix root), so
 # the files are copied below instead.
 cmake -S $(pwd) -B build-${PRGNAM} \
   -DCMAKE_C_FLAGS:STRING="$SLKCFLAGS" \
-  -DCMAKE_CXX_FLAGS:STRING="$SLKCFLAGS" \
+  -DCMAKE_CXX_FLAGS:STRING="$SLKCFLAGS -include cstdint" \
   -DCMAKE_BUILD_TYPE=Release \
   -DBUILD_TESTING=OFF \
   -Dgearmulator_BUILD_JUCEPLUGIN=ON \
