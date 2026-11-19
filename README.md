@@ -80,6 +80,14 @@ su -c 'scripts/build-slackbuild.sh -t vensder -i calf'
   all. Names limit the check (any installed package, e.g. `kernel-source`). It
   prints the line that adds removed packages to `/etc/slackpkg/blacklist`,
   so `slackpkg install-new` does not install them again.
+- `scripts/disk-usage.sh` (read-only) shows `df -h`, the dirs and subdirs at
+  any depth of `/` that are 1G or more (`du -x`, one filesystem; `-a` crosses
+  mounts) and the installed packages of 1G or more ("UNCOMPRESSED PACKAGE
+  SIZE" in `/var/lib/pkgtools/packages`), biggest first. `-s 500M` changes the
+  threshold, `-d 2` limits the depth, dir names scan only those
+  (`scripts/disk-usage.sh /home /tmp`). Run as root to see all dirs:
+  `su -c 'scripts/disk-usage.sh'`. Hints point to `clean-build.sh` when `/tmp`
+  is big and to `kernel-update.sh -d` with more than two kernels installed.
 
 Guides are in the `slackware-notes` repo:
 `README-alien-slackbuilds-scripts.md`, `README-sbo-custom-slackbuilds.md`.
