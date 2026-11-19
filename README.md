@@ -66,6 +66,19 @@ su -c 'scripts/build-slackbuild.sh -t vensder -i calf'
   `build-slackbuild.sh -C` removes a package's build dirs right after a
   successful build (kept on failure for debugging).
 
+- `scripts/check-unneeded.sh` lists installed official packages a desktop
+  usually does not need (httpd, php, bind, sendmail/postfix, dovecot, mariadb,
+  nodejs, samba, nfs-utils, ftp/dns/dhcp servers, ...) and checks whether
+  something still uses them: `SERVICE` (its `/etc/rc.d/rc.*` is executable),
+  `RUNNING`, `LIBRARY` (another package links one of its libraries, readelf
+  NEEDED) and `REPO` (a SlackBuild here lists it as a dependency); `NOTE`
+  says what else you lose (bind also has dig/host/nslookup). Dry run by
+  default; `su -c 'scripts/check-unneeded.sh -y php httpd'` runs `removepkg`
+  only for the named candidates without findings (no names: all of them).
+  Names limit the check (any installed package, e.g. `kernel-source`). It
+  prints the line that adds removed packages to `/etc/slackpkg/blacklist`,
+  so `slackpkg install-new` does not install them again.
+
 Guides are in the `slackware-notes` repo:
 `README-alien-slackbuilds-scripts.md`, `README-sbo-custom-slackbuilds.md`.
 
