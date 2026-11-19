@@ -17,17 +17,22 @@
 # Usage: check-unneeded.sh [-y] [name...]
 #   -y    remove the candidates without findings (as root:
 #         su -c 'scripts/check-unneeded.sh -y httpd php')
-#   name  only these packages (default: the built-in list below); any
-#         installed package name works, e.g. check-unneeded.sh kernel-source
+#   name  only these packages (default: the built-in list below without
+#         KEEP); any installed package name works, e.g. kernel-source
 #
-# Environment overrides: PKGDB, SCAN_DIRS (where linking programs are
-# searched), BLACKLIST (default /etc/slackpkg/blacklist)
+# Environment overrides: KEEP (candidates never checked unless named,
+# default below; KEEP= checks all), PKGDB, SCAN_DIRS (where linking programs
+# are searched), BLACKLIST (default /etc/slackpkg/blacklist)
 
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 REPO_DIR=$(dirname "$SCRIPT_DIR")
 PKGDB=${PKGDB:-/var/lib/pkgtools/packages}
 SCAN_DIRS=${SCAN_DIRS:-"/bin /sbin /lib /lib64 /usr/bin /usr/sbin /usr/lib /usr/lib64 /usr/libexec /usr/local /opt"}
 BLACKLIST=${BLACKLIST:-/etc/slackpkg/blacklist}
+# Kept on purpose: dig/host (bind), local mail for cron (postfix), Akonadi
+# (mariadb), Windows shares (samba), NFS, hotspot (dnsmasq), libraries
+# used by hplip/sane (net-snmp)
+KEEP=${KEEP-"bind postfix mariadb samba nfs-utils rpcbind dnsmasq inetd net-snmp dhcp"}
 
 # Candidates: name|description (NOTE lines start with "!")
 CANDIDATES='
@@ -60,6 +65,11 @@ inetd|Internet super-server
 yptools|NIS client and server
 net-snmp|SNMP agent and tools
 dhcp|ISC DHCP server and client (dhcpd, dhclient)
+kea|ISC Kea DHCP server
+netatalk|AFP file server (for old Macs)
+ulogd|netfilter (iptables/nftables) logging daemon
+nut|UPS monitoring (Network UPS Tools)
+!nut|keep it if a UPS is connected to this machine
 '
 
 usage() {
@@ -126,7 +136,9 @@ notes_of() {
 if [ $# -gt 0 ]; then
     NAMES=("$@")
 else
-    mapfile -t NAMES < <(printf '%s\n' "$CANDIDATES" | awk -F'|' '$1 != "" && $1 !~ /^!/ { print $1 }')
+    mapfile -t NAMES < <(printf '%s\n' "$CANDIDATES" \
+        | awk -F'|' -v keep=" $KEEP " '$1 != "" && $1 !~ /^!/ && index(keep, " " $1 " ") == 0 { print $1 }')
+    [ -n "$KEEP" ] && echo "Kept (KEEP, not checked): $KEEP"
 fi
 
 PKGS=()

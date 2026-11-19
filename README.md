@@ -75,7 +75,9 @@ su -c 'scripts/build-slackbuild.sh -t vensder -i calf'
   says what else you lose (bind also has dig/host/nslookup). Dry run by
   default; `su -c 'scripts/check-unneeded.sh -y php httpd'` runs `removepkg`
   only for the named candidates without findings (no names: all of them).
-  Names limit the check (any installed package, e.g. `kernel-source`). It
+  `KEEP` in the script (bind, postfix, mariadb, samba, nfs-utils, rpcbind,
+  dnsmasq, inetd, net-snmp, dhcp) are skipped unless named; `KEEP=` checks
+  all. Names limit the check (any installed package, e.g. `kernel-source`). It
   prints the line that adds removed packages to `/etc/slackpkg/blacklist`,
   so `slackpkg install-new` does not install them again.
 
