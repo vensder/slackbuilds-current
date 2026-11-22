@@ -123,6 +123,7 @@ SlackBuild, except git snapshots (tarball only in Alien's build dir).
 | vamp-plugin-sdk | alien | 2.10.0 | SRCURL moved to GitHub release vamp-plugin-sdk-v${VERSION%.0} (code.soundsoftware.ac.uk is down) |
 | serd | alien | 0.32.10 (Alien: 0.32.2) | -Ddocs=disabled (sphinxygen AssertionError on doc/api/serd.rst) |
 | sonic-visualiser | alien | 5.2.1 (Alien: 4.5.2) | patches/sonic-visualiser-5.2.1_qt6.11.patch (upstream svcore 2dee776, svgui d5dccf3) for Qt 6.11; menu PNG via rsvg-convert (IM7 SVG policy) |
+| unrar | alien | 7.3.2 (Alien: 5.5.6) | `unrar.soname.patch` replaced by a sed on `makefile` (`-Wl,-soname,libunrar.so.$(libversion)`); main dir builds only `unrar` |
 
 ## Packages built as-is
 
