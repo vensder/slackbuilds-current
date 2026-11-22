@@ -1,0 +1,12 @@
+diff -up unrar/makefile.unix~ unrar/makefile.unix
+--- unrar/makefile.unix~	2009-05-03 07:18:45.000000000 +0200
++++ unrar/makefile.unix	2010-09-05 17:05:41.413171001 +0200
+@@ -100,7 +100,7 @@ LINK=$(CXX)
+ WHAT=UNRAR
+ 
+ UNRAR_OBJ=filestr.o recvol.o rs.o scantree.o
+-LIB_OBJ=filestr.o scantree.o dll.o
++LIB_OBJ=filestr.o recvol.o rs.o scantree.o dll.o
+ 
+ OBJECTS=rar.o strlist.o strfn.o pathfn.o savepos.o smallfn.o global.o file.o filefn.o filcreat.o \
+ 	archive.o arcread.o unicode.o system.o isnt.o crypt.o crc.o rawread.o encname.o \

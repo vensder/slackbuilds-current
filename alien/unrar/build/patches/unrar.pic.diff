@@ -1,0 +1,13 @@
+--- unrar/makefile.unix.orig	2012-05-15 07:31:03.000000000 +0200
++++ unrar/makefile.unix	2013-01-01 20:57:18.395726921 +0100
+@@ -3,8 +3,8 @@
+ 
+ # Linux using GCC
+ CXX=g++
+-CXXFLAGS=-O2
+-LIBFLAGS=-fPIC
++CXXFLAGS=-O2 -fPIC
++LIBFLAGS=
+ DEFINES=-D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE
+ STRIP=strip
+ DESTDIR=/usr
