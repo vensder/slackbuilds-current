@@ -56,6 +56,9 @@
 #            * Update. Deferring to the way unrar is built in Arch Linux.
 # 5.5.6-1:   16/jul/2017 by Eric Hameleers <alien@slackware.com>
 #            * Update.
+# 7.3.2-1:   22/nov/2026
+#            * Update. Brand the soname with sed, the old patch no longer
+#              applies to the 7.x makefile.
 # 
 # Run 'sh unrar.SlackBuild' to build a Slackware package.
 # The package (.tgz) plus descriptive .txt file are created in /tmp .
@@ -66,7 +69,7 @@
 # Set initial variables:
 
 PRGNAM=unrar
-VERSION=${VERSION:-5.5.6}
+VERSION=${VERSION:-7.3.2}
 BUILD=${BUILD:-1}
 TAG=${TAG:-alien}
 
@@ -167,11 +170,9 @@ echo "Extracting the source archive(s) for $PRGNAM..."
 tar -xvf ${SOURCE}
 cd ${PRGNAM}
  
-touch $OUTPUT/patch-$PRGNAM.log
-
-# Brand the version into the soname:
-cat $SRCDIR/patches/unrar.soname.patch | patch -p1 --verbose \
-  2>&1 | tee -a $OUTPUT/patch-$PRGNAM.log
+# Brand the version into the soname (unrar 7.x makefile):
+sed -i 's/-shared -o libunrar.so /-shared -Wl,-soname,libunrar.so.$(libversion) -o libunrar.so.$(libversion) /' makefile
+grep -q 'soname,libunrar' makefile
 
 chown -R root:root .
 chmod -R u+w,go+r-w,a+X-s .
@@ -181,7 +182,7 @@ cp -a ../${PRGNAM} ../lib${PRGNAM}
 
 make -C ../lib${PRGNAM} lib libversion=${VERSION} CXXFLAGS="$SLKCFLAGS" \
   2>&1 | tee $OUTPUT/make-${PRGNAM}.log
-make -f makefile unrar lib CXXFLAGS="$SLKCFLAGS" \
+make -f makefile unrar CXXFLAGS="$SLKCFLAGS" \
   2>&1 | tee -a $OUTPUT/make-${PRGNAM}.log
 
 # Manually install binaries:
