@@ -186,11 +186,15 @@ gittag_upstream() {
     pre=$(sed -nE 's/.*GITTAG="([^"]*)\$\{?VERSION\}?".*/\1/p' "$1" | head -n1)
     case $uri in http*|git*) ;; *) return 1 ;; esac
     [ -n "$pre" ] || return 1
-    [ $VERBOSE -eq 1 ] && echo "  git tags: $uri ($pre*)" >&2
-    timeout 60 git ls-remote --tags --refs "$uri" "$pre*" 2>/dev/null \
-        | sed 's|.*refs/tags/||' | grep -E "^$(re_escape "$pre")[0-9]+(\.[0-9]+)*\$" \
-        | sed "s/^$(re_escape "$pre")//" \
-        | sort -uV | tail -n1
+    git_tag_versions "$uri" "$pre" | sort -uV | tail -n1
+}
+
+# Versions from git repo $1 tags named exactly <prefix $2>X.Y.Z
+git_tag_versions() {
+    [ $VERBOSE -eq 1 ] && echo "  git tags: $1 ($2*)" >&2
+    timeout 60 git ls-remote --tags --refs "$1" "$2*" 2>/dev/null \
+        | sed 's|.*refs/tags/||' | grep -E "^$(re_escape "$2")[0-9]+(\.[0-9]+)*\$" \
+        | sed "s/^$(re_escape "$2")//"
 }
 
 # Read text on stdin, print versions found as <prefix>VERSION<suffix>
@@ -314,7 +318,7 @@ clean_build_dirs() {
 
 # Latest stable version from the source site of a SRCURL template
 latest_upstream() {
-    local tpl=$1 file pre suf path
+    local tpl=$1 file pre suf path repo ver tag
     case $tpl in *@VERSION@*) ;; *) return 1 ;; esac
     file=${tpl##*/}
     pre=${file%%@VERSION@*}
@@ -322,8 +326,16 @@ latest_upstream() {
     case $tpl in
         *://github.com/*|*://codeload.github.com/*)
             # Latest published release (no tags: old/odd tags give wrong results)
-            fetch "https://api.github.com/repos/$(echo "$tpl" | cut -d/ -f4-5)/releases/latest" \
-                | sed -nE 's/.*"tag_name": *"[^0-9"]*([0-9]+(\.[0-9]+)*)".*/\1/p'
+            repo=$(echo "$tpl" | cut -d/ -f4-5)
+            ver=$(fetch "https://api.github.com/repos/$repo/releases/latest" \
+                | sed -nE 's/.*"tag_name": *"[^0-9"]*([0-9]+(\.[0-9]+)*)".*/\1/p')
+            if [ -z "$ver" ]; then
+                # API failed (rate limit: 60 requests/hour) or no release:
+                # tags named exactly like the URL, e.g. release-@VERSION@ or v@VERSION@
+                tag=$(echo "$tpl" | cut -d/ -f6- | tr / '\n' | grep -m1 @VERSION@)
+                ver=$(git_tag_versions "https://github.com/$repo.git" "${tag%%@VERSION@*}")
+            fi
+            printf '%s\n' "$ver"
             ;;
         *sourceforge.net/*)
             path=${tpl#*sourceforge.net/}
