@@ -340,14 +340,14 @@ HELD=()       # packages skipped because they are on hold
 on_hold() {
     [ -f "$HOLD_FILE" ] && sed 's/#.*//' "$HOLD_FILE" | awk '{ print $1 }' | grep -qxF -- "$1"
 }
-UPDATES=()    # "name: installed -> upstream", for the -a summary
+UPDATES=()    # "name (tree): installed -> upstream", for the -a summary
 NOSB=()       # installed packages without a downloaded SlackBuild
 
 # Process one package: show info, handle deps (with -d), then build.
 # $1 = package, $2 = parent package (empty for the top-level one)
 process_pkg() {
     local pkg=$1 parent=$2
-    local build_dir sb_file info_file
+    local build_dir sb_file info_file sb_tree
     local prgnam sb_ver inst_ver latest from target pkgfile dep need_build=1
     local -a deps=()
 
@@ -391,6 +391,10 @@ process_pkg() {
     info_file=$build_dir/$pkg.info
     [ -f "$info_file" ] || info_file=
     echo "SlackBuild dir:     ${build_dir#"$REPO_DIR"/}"
+    # Tree name for the -a summary: first dir under the repo (alien/zix/build)
+    sb_tree=${build_dir#"$REPO_DIR"/}
+    sb_tree=${sb_tree%%/*}
+    sb_tree=${sb_tree:-$TREE}
 
     prgnam=$(sed -nE 's/^PRGNAM=//p' "$sb_file" | head -n1 | tr -d '"')
     prgnam=${prgnam:-$pkg}
@@ -417,7 +421,7 @@ process_pkg() {
         if [ -n "$latest" ]; then
             echo "Upstream version:   $latest (from $from)"
             if [ -n "$inst_ver" ] && ver_gt "$latest" "$inst_ver"; then
-                UPDATES+=("$prgnam: $inst_ver -> $latest")
+                UPDATES+=("$prgnam ($sb_tree): $inst_ver -> $latest")
             fi
         else
             echo "Upstream version:   could not detect automatically"
