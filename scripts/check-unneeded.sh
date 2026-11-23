@@ -31,13 +31,14 @@ SCAN_DIRS=${SCAN_DIRS:-"/bin /sbin /lib /lib64 /usr/bin /usr/sbin /usr/lib /usr/
 BLACKLIST=${BLACKLIST:-/etc/slackpkg/blacklist}
 # Kept on purpose: dig/host (bind), local mail for cron (postfix), Akonadi
 # (mariadb), Windows shares (samba), NFS, hotspot (dnsmasq), libraries
-# used by hplip/sane (net-snmp)
-KEEP=${KEEP-"bind postfix mariadb samba nfs-utils rpcbind dnsmasq inetd net-snmp dhcp"}
+# used by hplip/sane (net-snmp), building lsp-plugins (php)
+KEEP=${KEEP-"bind postfix mariadb samba nfs-utils rpcbind dnsmasq inetd net-snmp dhcp php"}
 
 # Candidates: name|description (NOTE lines start with "!")
 CANDIDATES='
 httpd|Apache web server
 php|PHP (mod_php for httpd, php-fpm, php CLI)
+!php|lsp-plugins needs the php CLI to build
 bind|DNS server (named)
 !bind|also provides dig, host, nslookup and nsupdate; keep bind if you use them
 sendmail|mail server (MTA)
