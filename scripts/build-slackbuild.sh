@@ -342,6 +342,7 @@ on_hold() {
 }
 UPDATES=()    # "name (tree): installed -> upstream", for the -a summary
 NOSB=()       # installed packages without a downloaded SlackBuild
+UPDATE_CMDS=() # build/install command for each entry in UPDATES
 
 # Process one package: show info, handle deps (with -d), then build.
 # $1 = package, $2 = parent package (empty for the top-level one)
@@ -422,6 +423,7 @@ process_pkg() {
             echo "Upstream version:   $latest (from $from)"
             if [ -n "$inst_ver" ] && ver_gt "$latest" "$inst_ver"; then
                 UPDATES+=("$prgnam ($sb_tree): $inst_ver -> $latest")
+                UPDATE_CMDS+=("su -c '$0 -t $sb_tree -n -i $pkg'")
             fi
         else
             echo "Upstream version:   could not detect automatically"
@@ -540,6 +542,10 @@ if [ $NEWEST -eq 1 ] || [ $CHECK_ONLY -eq 1 ]; then
     if [ ${#UPDATES[@]} -gt 0 ]; then
         echo "Newer upstream versions:"
         printf '  %s\n' "${UPDATES[@]}"
+        if [ $CHECK_ONLY -eq 1 ]; then
+            echo "To build and install the newer versions:"
+            printf '  %s\n' "${UPDATE_CMDS[@]}"
+        fi
     else
         echo "No newer upstream versions found."
     fi
