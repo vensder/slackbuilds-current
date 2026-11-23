@@ -28,7 +28,7 @@
 # For:         lsp-plugins
 # Descr:       Linux Studio Plugins
 # URL:         https://lsp-plug.in/
-# Build needs: 
+# Build needs: php (builds the HTML docs)
 # Needs:       jack2, ladspa_sdk, lv2
 # Changelog:   
 # 1.1.5-1:     11/Mar/2019 by Eric Hameleers <alien@slackware.com>
@@ -37,6 +37,10 @@
 #              * Update.
 # 1.2.19-1:    06/jan/2025 by Eric Hameleers <alien@slackware.com>
 #              * Update.
+# 1.2.37-1:    23/nov/2026
+#              * Update. set -o pipefail and check for php up front, so a
+#                failed make no longer gives a package without plugins.
+#                DOCS are CHANGELOG COPYING* README.md (no *.txt).
 # 
 # Run 'sh lsp-plugins.SlackBuild' to build a Slackware package.
 # The package (.t?z) and .txt file as well as build logs are created in /tmp .
@@ -45,12 +49,12 @@
 # -----------------------------------------------------------------------------
 
 PRGNAM=lsp-plugins
-VERSION=${VERSION:-1.2.19}
+VERSION=${VERSION:-1.2.37}
 BUILD=${BUILD:-1}
 NUMJOBS=${NUMJOBS:-" -j$(nproc) "}
 TAG=${TAG:-alien}
 
-DOCS="*.txt"
+DOCS="CHANGELOG COPYING* README.md"
 
 # Where do we look for sources?
 SRCDIR=$(cd $(dirname $0); pwd)
@@ -100,6 +104,8 @@ esac
 
 # Exit the script on errors:
 set -e
+# Fail when make fails, not only when tee does:
+set -o pipefail
 trap 'echo "$0 FAILED at line ${LINENO}" | tee $OUTPUT/error-${PRGNAM}.log' ERR
 # Catch unitialized variables:
 set -u
@@ -144,6 +150,12 @@ if [ "$P1" == "--download" ]; then
 fi
 
 # --- PACKAGE BUILDING ---
+
+# 'make install' runs php to build the docs (FEATURES has 'doc'):
+if ! command -v php >/dev/null 2>&1; then
+  echo "php not found, it is needed to build ${PRGNAM}... aborting the build."
+  exit 1
+fi
 
 echo "++"
 echo "|| $PRGNAM-$VERSION"
@@ -199,7 +211,7 @@ EOINS
 
 # Add documentation:
 mkdir -p $PKG/usr/doc/$PRGNAM-$VERSION
-cp -a $DOCS $PKG/usr/doc/$PRGNAM-$VERSION || true
+cp -a $DOCS $PKG/usr/doc/$PRGNAM-$VERSION
 cat $SRCDIR/$(basename $0) > $PKG/usr/doc/$PRGNAM-$VERSION/$PRGNAM.SlackBuild
 chown -R root:root $PKG/usr/doc/$PRGNAM-$VERSION
 find $PKG/usr/doc -type f -exec chmod 644 {} \;

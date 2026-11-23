@@ -124,6 +124,7 @@ SlackBuild, except git snapshots (tarball only in Alien's build dir).
 | serd | alien | 0.32.10 (Alien: 0.32.2) | -Ddocs=disabled (sphinxygen AssertionError on doc/api/serd.rst) |
 | sonic-visualiser | alien | 5.2.1 (Alien: 4.5.2) | patches/sonic-visualiser-5.2.1_qt6.11.patch (upstream svcore 2dee776, svgui d5dccf3) for Qt 6.11; menu PNG via rsvg-convert (IM7 SVG policy) |
 | unrar | alien | 7.3.2 (Alien: 5.5.6) | `unrar.soname.patch` replaced by a sed on `makefile` (`-Wl,-soname,libunrar.so.$(libversion)`); main dir builds only `unrar` |
+| lsp-plugins | alien | 1.2.37 (Alien: 1.2.19) | `set -o pipefail` and a php check up front (without php `make install` failed in the doc step but a package without the VST2/VST3/LV2/LADSPA bundles was still made); DOCS fixed; needs php; `MAKEFLAGS=-s` for less output |
 
 ## Packages built as-is
 
@@ -143,7 +144,6 @@ Version = installed version; `-n` = newest upstream, `-V` = given version.
 | libgig | alien | 4.6.0 | for lmms GIG player |
 | liblo | alien | 0.36 | `-n` |
 | libltc | alien | 1.3.2 | dependency of x42-plugins |
-| lsp-plugins | alien | 1.2.35 | `-n`; `MAKEFLAGS=-s` for less output |
 | lv2 | alien | 1.18.10 | |
 | mxml | alien | 4.0.6 | `-n`; needs the zynaddsubfx mxml4 patch |
 | ntk | alien | 1.3.1001 | |
