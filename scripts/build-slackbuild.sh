@@ -177,6 +177,22 @@ srcurl_template() {
     sb_eval_var "$1" SRCURL @VERSION@
 }
 
+# Latest version from the git tags of SlackBuild $1, for SlackBuilds
+# without SRCURL that check out GITTAG="<prefix>$VERSION" from GITURI
+# (e.g. surge-xt: release_xt_1.3.4; repology has old Surge 1.9.0 there)
+gittag_upstream() {
+    local uri pre
+    uri=$(sed -nE 's/.*GITURI="([^"]+)".*/\1/p' "$1" | head -n1)
+    pre=$(sed -nE 's/.*GITTAG="([^"]*)\$\{?VERSION\}?".*/\1/p' "$1" | head -n1)
+    case $uri in http*|git*) ;; *) return 1 ;; esac
+    [ -n "$pre" ] || return 1
+    [ $VERBOSE -eq 1 ] && echo "  git tags: $uri ($pre*)" >&2
+    timeout 60 git ls-remote --tags --refs "$uri" "$pre*" 2>/dev/null \
+        | sed 's|.*refs/tags/||' | grep -E "^$(re_escape "$pre")[0-9]+(\.[0-9]+)*\$" \
+        | sed "s/^$(re_escape "$pre")//" \
+        | sort -uV | tail -n1
+}
+
 # Read text on stdin, print versions found as <prefix>VERSION<suffix>
 extract_versions() {
     local pre suf
@@ -413,6 +429,7 @@ process_pkg() {
             latest=$(latest_upstream "$(info_url_template "$info_file")")
         else
             latest=$(latest_upstream "$(srcurl_template "$sb_file")")
+            [ -n "$latest" ] || latest=$(gittag_upstream "$sb_file")
         fi
         from="source site"
         if [ -z "$latest" ]; then
