@@ -13,11 +13,16 @@
 #                 of it, is installed (built but not installed ones are kept)
 #   build-*.log and Alien's {checkout,configure,make,install,error,makepkg,
 #                 patch}-*.log
+# With -s also downloaded source archives in the repo trees (alien, vensder,
+# sbo): files git ignores and does not track, named *.tar.*, *.tgz, *.tbz,
+# *.tbz2, *.zip, *.7z or *.backup. Tracked files and patches are never
+# touched. The SlackBuilds download them again on the next build.
 # Nothing else in /tmp is touched (X11, tmux, browser dirs, ...).
 # Default: dry run, only lists sizes. Deleting needs -y and root.
 #
-# Usage: clean-build.sh [-p] [-y]
+# Usage: clean-build.sh [-p] [-s] [-y]
 #   -p  also built package files and build logs in OUTPUT (see above)
+#   -s  also source archives in the repo trees (see above)
 #   -y  really delete (as root: su -c 'scripts/clean-build.sh -y')
 #
 # Environment overrides: TMP, SBO_TMP, OUTPUT, PKGDB, STRAY_DIR (default /tmp)
@@ -37,10 +42,12 @@ usage() {
 }
 
 PACKAGES=0
+SOURCES=0
 DELETE=0
-while getopts "pyh" opt; do
+while getopts "psyh" opt; do
     case $opt in
         p) PACKAGES=1 ;;
+        s) SOURCES=1 ;;
         y) DELETE=1 ;;
         *) usage ;;
     esac
@@ -85,6 +92,19 @@ repo_names() {
     done | sort -u
 }
 
+# Source archives: untracked files that .gitignore ignores, archives only
+# (safe.directory: the repo belongs to the user, this runs as root)
+list_sources() {
+    local t
+    for t in $TREES; do
+        [ -d "$REPO_DIR/$t" ] || continue
+        git -c safe.directory="$REPO_DIR" -C "$REPO_DIR" ls-files -z \
+            --others --ignored --exclude-standard -- "$t" ||
+            echo "WARNING: git ls-files failed in $REPO_DIR, source archives skipped" >&2
+    done | tr '\0' '\n' | grep -E '\.(tar\.[^/]+|tgz|tbz2?|zip|7z|backup)$' |
+        sed "s|^|$REPO_DIR/|"
+}
+
 # Candidates, one path per line
 list_targets() {
     local d f name
@@ -95,6 +115,8 @@ list_targets() {
     while read -r name; do
         find "$STRAY_DIR" -mindepth 1 -maxdepth 1 -type d -name "$name-[0-9]*"
     done < <(repo_names)
+
+    [ $SOURCES -eq 1 ] && list_sources
 
     [ $PACKAGES -eq 1 ] || return 0
     # name-ver-arch-build.t?z: installed itself, or another version installed
@@ -128,11 +150,16 @@ echo "Total: $(du -sch "${TARGETS[@]}" 2>/dev/null | tail -n1 | cut -f1)"
 if [ $PACKAGES -eq 0 ]; then
     echo "(built packages and logs in $OUTPUT not included, add -p)"
 fi
+if [ $SOURCES -eq 0 ]; then
+    echo "(source archives in $REPO_DIR not included, add -s)"
+fi
 
 echo
 if [ $DELETE -eq 0 ]; then
-    opts=-y
-    [ $PACKAGES -eq 1 ] && opts="-p -y"
+    opts=
+    [ $PACKAGES -eq 1 ] && opts="$opts -p"
+    [ $SOURCES -eq 1 ] && opts="$opts -s"
+    opts="${opts# } -y"
     echo "Dry run, nothing deleted. To delete: su -c '$0 $opts'"
     exit 0
 fi

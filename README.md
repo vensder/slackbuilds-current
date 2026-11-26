@@ -62,13 +62,17 @@ su -c 'scripts/build-slackbuild.sh -t vensder -i calf'
   SlackBuild in this repo). Dry run by default; `su -c 'scripts/clean-build.sh -y'`
   deletes them (refused while a SlackBuild is running). `-p` adds built
   packages in `/tmp` that are installed or have another version installed,
-  and build logs. Nothing else in `/tmp` is touched.
+  and build logs. `-s` adds downloaded source archives in `alien/`,
+  `vensder/` and `sbo/` (untracked files `.gitignore` ignores: `*.tar.*`,
+  `*.tgz`, `*.zip`, `*.7z`, `*.backup`, ...; tracked files and patches are never
+  touched), they are downloaded again on the next build:
+  `su -c 'scripts/clean-build.sh -s -y'`. Nothing else in `/tmp` is touched.
   `build-slackbuild.sh -C` removes a package's build dirs right after a
   successful build (kept on failure for debugging).
 
 - `scripts/check-unneeded.sh` lists installed official packages a desktop
   usually does not need (httpd, php, bind, sendmail/postfix, dovecot, mariadb,
-  nodejs, samba, nfs-utils, ftp/dns/dhcp servers, ...) and checks whether
+  nodejs, samba, nfs-utils, ftp/dns/dhcp servers, qemu, ...) and checks whether
   something still uses them: `SERVICE` (its `/etc/rc.d/rc.*` is executable),
   `RUNNING`, `LIBRARY` (another package links one of its libraries, readelf
   NEEDED) and `REPO` (a SlackBuild here lists it as a dependency); `NOTE`
@@ -87,7 +91,8 @@ su -c 'scripts/build-slackbuild.sh -t vensder -i calf'
   threshold, `-d 2` limits the depth, dir names scan only those
   (`scripts/disk-usage.sh /home /tmp`). Run as root to see all dirs:
   `su -c 'scripts/disk-usage.sh'`. Hints point to `clean-build.sh` when `/tmp`
-  is big and to `kernel-update.sh -d` with more than two kernels installed.
+  is big, to `clean-build.sh -s` when this repo is listed and to
+  `kernel-update.sh -d` with more than two kernels installed.
 
 Guides are in the `slackware-notes` repo:
 `README-alien-slackbuilds-scripts.md`, `README-sbo-custom-slackbuilds.md`.

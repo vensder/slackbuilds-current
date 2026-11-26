@@ -71,6 +71,8 @@ netatalk|AFP file server (for old Macs)
 ulogd|netfilter (iptables/nftables) logging daemon
 nut|UPS monitoring (Network UPS Tools)
 !nut|keep it if a UPS is connected to this machine
+qemu|QEMU emulator and virtual machines
+!qemu|virt-manager, libvirt and GNOME Boxes run it; also provides qemu-img
 '
 
 usage() {

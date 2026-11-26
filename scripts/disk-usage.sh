@@ -96,6 +96,12 @@ if echo "$DIRS" | grep -qE '[[:space:]]/tmp(/build|/SBo)?$'; then
 - /tmp is big: build leftovers are listed by $SCRIPT_DIR/clean-build.sh -p
   (delete with su -c '$SCRIPT_DIR/clean-build.sh -p -y')"
 fi
+REPO_DIR=$(dirname "$SCRIPT_DIR")
+if echo "$DIRS" | awk -F'\t' -v r="$REPO_DIR" '$2 == r {f = 1} END {exit !f}'; then
+    HINTS="$HINTS
+- $REPO_DIR is big: downloaded source archives are listed by
+  $SCRIPT_DIR/clean-build.sh -s (delete with su -c '$SCRIPT_DIR/clean-build.sh -s -y')"
+fi
 NKERN=$(ls "$PKGDB" 2>/dev/null | grep -c '^kernel-generic-[0-9]')
 if [ "$NKERN" -gt 2 ]; then
     HINTS="$HINTS
