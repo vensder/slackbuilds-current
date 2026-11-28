@@ -1,9 +1,11 @@
 #!/bin/bash
 
-# Slackware build script for JamesDSP for Linux v2.3
-
-# Copyright 2022 Ralph Spitzner <rasp@spitzner.org>
-# All rights reserved.
+# Slackware build script for JamesDSP for Linux
+#
+# Based on the SBo JDSP4Linux.SlackBuild by Ralph Spitzner (sbo/JDSP4Linux).
+# Source: the upstream tag (Audio4Linux/JDSP4Linux) cloned with its
+# submodules and packed into JDSP4Linux-$VERSION.tar.gz (GitHub tag
+# tarballs lack the submodules). Needs git for the first build.
 #
 # Redistribution and use of this script, with or without modification, is
 # permitted provided that the following conditions are met:
@@ -25,11 +27,15 @@
 cd $(dirname $0) ; CWD=$(pwd)
 
 PRGNAM=JDSP4Linux
-VERSION=${VERSION:-2.7}
+VERSION=${VERSION:-2.7.0}
 BUILD=${BUILD:-1}
-TAG=${TAG:-_SBo}
-PKGTYPE=${PKGTYPE:-tgz}
+TAG=${TAG:-vensder}
+PKGTYPE=${PKGTYPE:-txz}
 
+GITURL=https://github.com/Audio4Linux/JDSP4Linux.git
+# Not downloaded (no submodules in it): only for the version check of
+# scripts/build-slackbuild.sh (GitHub releases, tags named like 2.7.0)
+SRCURL="https://github.com/Audio4Linux/JDSP4Linux/archive/${VERSION}/JDSP4Linux-${VERSION}.tar.gz"
 
 if [ -z "$ARCH" ]; then
   case "$( uname -m )" in
@@ -44,32 +50,32 @@ if [ ! -z "${PRINT_PACKAGE_NAME}" ]; then
   exit 0
 fi
 
-TMP=${TMP:-/tmp/SBo}
+TMP=${TMP:-/tmp/build}
 PKG=$TMP/package-$PRGNAM
 OUTPUT=${OUTPUT:-/tmp}
 
-if [ "$ARCH" = "i586" ]; then
-  SLKCFLAGS="-O2 -march=i586 -mtune=i686"
-  LIBDIRSUFFIX=""
-elif [ "$ARCH" = "i686" ]; then
-  SLKCFLAGS="-O2 -march=i686 -mtune=i686"
-  LIBDIRSUFFIX=""
-elif [ "$ARCH" = "x86_64" ]; then
-  SLKCFLAGS="-O2 -fPIC"
-  LIBDIRSUFFIX="64"
-else
-  SLKCFLAGS="-O2"
-  LIBDIRSUFFIX=""
-fi
+# Made from a recursive clone of the tag; unpacks to JDSP4Linux-$VERSION/
+SOURCE=$CWD/$PRGNAM-$VERSION.tar.gz
 
 set -e
 
 rm -rf $PKG
 mkdir -p $TMP $PKG $OUTPUT
+
+if ! [ -f $SOURCE ]; then
+  echo "Cloning tag $VERSION with submodules..."
+  rm -rf $TMP/git-$PRGNAM
+  mkdir -p $TMP/git-$PRGNAM
+  git clone --depth 1 --branch $VERSION --recursive --shallow-submodules \
+    $GITURL $TMP/git-$PRGNAM/$PRGNAM-$VERSION
+  tar -czf $SOURCE --exclude=.git -C $TMP/git-$PRGNAM $PRGNAM-$VERSION
+  rm -rf $TMP/git-$PRGNAM
+fi
+
 cd $TMP
-rm -rf $PRGNAM
-tar xvf $CWD/$PRGNAM-$VERSION.tar.xz
-cd $PRGNAM
+rm -rf $PRGNAM-$VERSION
+tar xvf $SOURCE
+cd $PRGNAM-$VERSION
 chown -R root:root .
 find -L . \
  \( -perm 777 -o -perm 775 -o -perm 750 -o -perm 711 -o -perm 555 \
@@ -77,22 +83,25 @@ find -L . \
  \( -perm 666 -o -perm 664 -o -perm 640 -o -perm 600 -o -perm 444 \
   -o -perm 440 -o -perm 400 \) -exec chmod 644 {} \;
 
+# From the SBo SlackBuild: build with clang
 sed -i '1s/^/QMAKE_CC = clang\nQMAKE_CXX = clang++\nQMAKE_LINK=clang++\n/' src/src.pro
+
 mkdir build
 cd build
-if [ x"${PULSE}" == "x" ]; then 
-     qmake-qt5 ../JDSP4Linux.pro 
-  else
-      qmake-qt5 ../JDSP4Linux.pro "CONFIG += USE_PULSEAUDIO"
-  fi
+# PipeWire by default; PULSE=yes for the PulseAudio backend
+if [ -z "${PULSE:-}" ]; then
+  qmake-qt5 ../JDSP4Linux.pro
+else
+  qmake-qt5 ../JDSP4Linux.pro "CONFIG += USE_PULSEAUDIO"
+fi
 
-make
+make -j$(nproc)
 
-mkdir -p $PKG/usr/share/applications/
 mkdir -p $PKG/usr/bin
 cp src/jamesdsp $PKG/usr/bin
 
-cat <<EOT >> $PKG/usr/share/applications/jamesdsp.desktop
+mkdir -p $PKG/usr/share/applications
+cat <<EOT > $PKG/usr/share/applications/jamesdsp.desktop
 [Desktop Entry]
 Name=JamesDSP
 GenericName=Audio effect processor
@@ -100,22 +109,22 @@ Comment=JamesDSP for Linux
 Keywords=equalizer;audio;effect
 Categories=AudioVideo;Audio;
 Exec=jamesdsp
-Icon=/usr/share/pixmaps/jamesdsp.png
+Icon=jamesdsp
 StartupNotify=false
 Terminal=false
 Type=Application
 EOT
 
 mkdir -p $PKG/usr/share/pixmaps
-cat $CWD/icon.png > $PKG/usr/share/pixmaps/jamesdsp.png 
-
-# Don't ship .la files:
-rm -f $PKG/{,usr/}lib${LIBDIRSUFFIX}/*.la
+cat ../resources/icons/icon.png > $PKG/usr/share/pixmaps/jamesdsp.png
 
 find $PKG -print0 | xargs -0 file | grep -e "executable" -e "shared object" | grep ELF \
   | cut -f 1 -d : | xargs strip --strip-unneeded 2> /dev/null || true
 
 mkdir -p $PKG/usr/doc/$PRGNAM-$VERSION
+for f in ../LICENSE ../README.md ../BUILD.md; do
+  if [ -e $f ]; then cp -a $f $PKG/usr/doc/$PRGNAM-$VERSION; fi
+done
 cat $CWD/$PRGNAM.SlackBuild > $PKG/usr/doc/$PRGNAM-$VERSION/$PRGNAM.SlackBuild
 
 mkdir -p $PKG/install
@@ -124,4 +133,3 @@ cat $CWD/doinst.sh > $PKG/install/doinst.sh
 
 cd $PKG
 /sbin/makepkg -l y -c n $OUTPUT/$PRGNAM-$VERSION-$ARCH-$BUILD$TAG.$PKGTYPE
-
