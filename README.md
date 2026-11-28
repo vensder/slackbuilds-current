@@ -111,6 +111,7 @@ SlackBuild, except git snapshots (tarball only in Alien's build dir).
 | yoshimi | sbo | 2.3.6.5 (SBo: 2.3.2) | top dir `${PRGNAM}_$VERSION`; doc glob `README*` |
 | swh-plugins | sbo | 0.4.17 (SBo: 0.4.15) | source from the GitHub tag tarball `swh/ladspa` `v$VERSION` (`ladspa-$VERSION.tar.gz`, plugin.org.uk is gone); `autoreconf -fi` (no configure in git; needs perl XML::Parser); libdir sed also for `$(prefix)/lib/ladspa`; check that plugins are in `/usr/lib64/ladspa`; doc files copied only if present |
 | swh-plugins-lv2 | sbo | 1.0.16 | `REQUIRES=""`: slv2 (and redland, rasqal, raptor) not needed, the build uses only make, xsltproc, fftw and the lv2 headers; slv2 is dead upstream (replaced by lilv) |
+| fabla | sbo | 1.4 | `REQUIRES="ntk"`: slv2 (and redland, rasqal, raptor) not needed, upstream needs only ntk, cairo, sndfile and lv2; `-DCMAKE_POLICY_VERSION_MINIMUM=3.5` (CMake 4, `cmake_minimum_required(VERSION 2.6)`) |
 | zynaddsubfx | alien | 3.0.6 | `patches/zynaddsubfx-3.0.6-mxml4.patch` (upstream PR #315, via Gentoo) for mxml 4 |
 | qmmp | alien | 2.4.2 | `SRCURL` moved to `files/qmmp/${VERSION%.*}/` |
 | carla | alien | 2.5.10 (Alien: 20241124 git snapshot) | default `VERSION=2.5.10`, `SRCURL` = GitHub tag tarball `v$VERSION` (saved as `carla-2.5.10.tar.gz`), git snapshot only for `VERSION=*git`/`HEAD`; built without MinGW-w64/wine |
