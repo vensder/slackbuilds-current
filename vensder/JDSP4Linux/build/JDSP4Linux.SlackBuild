@@ -86,6 +86,11 @@ find -L . \
 # From the SBo SlackBuild: build with clang
 sed -i '1s/^/QMAKE_CC = clang\nQMAKE_CXX = clang++\nQMAKE_LINK=clang++\n/' src/src.pro
 
+# GCC 14+ makes these errors in the bundled C library (libjamesdsp is built
+# with gcc, not clang): keep them warnings as with older GCC
+sed -i '1s/^/QMAKE_CFLAGS += -Wno-error=incompatible-pointer-types -Wno-error=implicit-int -Wno-error=implicit-function-declaration -Wno-error=int-conversion\n/' \
+  libjamesdsp/libjamesdsp.pro
+
 mkdir build
 cd build
 # PipeWire by default; PULSE=yes for the PulseAudio backend
