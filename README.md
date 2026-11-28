@@ -109,6 +109,7 @@ SlackBuild, except git snapshots (tarball only in Alien's build dir).
 | stk | sbo | 5.0.1 (SBo: 4.4.4) | doc globs `INSTALL* README*` |
 | lmms | sbo | 1.2.2 | `-DCMAKE_POLICY_VERSION_MINIMUM=3.5`; CMake 4 seds (CMP0026, CMP0050, LOCATION); `$(pkg-config --cflags cairo)` in `SLKCFLAGS`; `#include "CarlaDefines.h"` in `plugins/carlabase/carla.h` |
 | yoshimi | sbo | 2.3.6.5 (SBo: 2.3.2) | top dir `${PRGNAM}_$VERSION`; doc glob `README*` |
+| swh-plugins | sbo | 0.4.17 (SBo: 0.4.15) | source from the GitHub tag tarball `swh/ladspa` `v$VERSION` (`ladspa-$VERSION.tar.gz`, plugin.org.uk is gone); `autoreconf -fi` (no configure in git; needs perl XML::Parser); libdir sed also for `$(prefix)/lib/ladspa`; check that plugins are in `/usr/lib64/ladspa`; doc files copied only if present |
 | zynaddsubfx | alien | 3.0.6 | `patches/zynaddsubfx-3.0.6-mxml4.patch` (upstream PR #315, via Gentoo) for mxml 4 |
 | qmmp | alien | 2.4.2 | `SRCURL` moved to `files/qmmp/${VERSION%.*}/` |
 | carla | alien | 2.5.10 (Alien: 20241124 git snapshot) | default `VERSION=2.5.10`, `SRCURL` = GitHub tag tarball `v$VERSION` (saved as `carla-2.5.10.tar.gz`), git snapshot only for `VERSION=*git`/`HEAD`; built without MinGW-w64/wine |

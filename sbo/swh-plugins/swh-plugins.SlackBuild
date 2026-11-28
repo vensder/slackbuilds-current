@@ -25,7 +25,7 @@
 cd $(dirname $0) ; CWD=$(pwd)
 
 PRGNAM=swh-plugins
-VERSION=${VERSION:-0.4.15}
+VERSION=${VERSION:-0.4.17}
 BUILD=${BUILD:-1}
 TAG=${TAG:-_SBo}
 PKGTYPE=${PKGTYPE:-tgz}
@@ -73,9 +73,10 @@ set -eu
 rm -rf $PKG
 mkdir -p $TMP $PKG $OUTPUT
 cd $TMP
-rm -rf $PRGNAM-$VERSION
-tar xvf $CWD/$PRGNAM-$VERSION.tar.gz
-cd $PRGNAM-$VERSION
+# plugin.org.uk is gone: GitHub tag tarball (swh/ladspa), top dir ladspa-$VERSION
+rm -rf ladspa-$VERSION
+tar xvf $CWD/ladspa-$VERSION.tar.gz
+cd ladspa-$VERSION
 chown -R root:root .
 find -L . \
  \( -perm 777 -o -perm 775 -o -perm 750 -o -perm 711 -o -perm 555 -o -perm 511 \) \
@@ -83,8 +84,13 @@ find -L . \
  \( -perm 666 -o -perm 664 -o -perm 600 -o -perm 444 -o -perm 440 -o -perm 400 \) \
  -exec chmod 644 {} \;
 
+# git tarball has no configure: generate it (needs perl XML::Parser for
+# the plugin sources made from the .xml files)
+autoreconf -fi
+
 # handle --libdir correctly
-sed -i "s|@prefix@/lib/ladspa|\$(libdir)/ladspa|" Makefile.in
+sed -i -e "s|@prefix@/lib/ladspa|\$(libdir)/ladspa|" \
+       -e "s|\$(prefix)/lib/ladspa|\$(libdir)/ladspa|" Makefile.in
 
 # Uncomment this to override the SIMD settings above (not recommended)
 #CFLAGS="$SLKCFLAGS" \
@@ -101,9 +107,14 @@ sed -i "s|@prefix@/lib/ladspa|\$(libdir)/ladspa|" Makefile.in
 make
 make install-strip DESTDIR=$PKG
 
+# fail here if the plugins did not land in /usr/lib64/ladspa
+ls $PKG/usr/lib$LIBDIRSUFFIX/ladspa/*.so > /dev/null
+
 mkdir -p $PKG/usr/doc/$PRGNAM-$VERSION
-cp -a ABOUT-NLS AUTHORS COPYING ChangeLog INSTALL NEWS README TODO \
-      $PKG/usr/doc/$PRGNAM-$VERSION
+# some of these are only in release tarballs, copy the ones present
+for f in ABOUT-NLS AUTHORS COPYING ChangeLog INSTALL NEWS README README.md TODO; do
+  if [ -e $f ]; then cp -a $f $PKG/usr/doc/$PRGNAM-$VERSION; fi
+done
 cat $CWD/$PRGNAM.SlackBuild > $PKG/usr/doc/$PRGNAM-$VERSION/$PRGNAM.SlackBuild
 
 mkdir -p $PKG/install
